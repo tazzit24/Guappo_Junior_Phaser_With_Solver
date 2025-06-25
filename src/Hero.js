@@ -2,6 +2,7 @@
 
 class Hero extends MovablePiece {
 
+    /** @type {number} */
     order;
 
     constructor(name, step, location, order) {
@@ -14,3 +15,4 @@ class Hero extends MovablePiece {
     }
 
 }
+

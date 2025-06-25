@@ -88,22 +88,29 @@ class GameLogic {
                 }
             }
         }
-        this.wappo.resetMoves();
-        this.friends.forEach(f => f && f.resetMoves());
 
         // --- Enemies' Moves ---
         const enemySteps = this.enemies.filter(e => e).map(e => e.getStep());
         const maxEnemySteps = enemySteps.length > 0 ? Math.max(...enemySteps) : 0;
         for (let i = 0; i < maxEnemySteps; i++) {
+            const currentStepMoveResults = [];
             for (const enemy of this.enemies) {
                 if (enemy && !enemy.finishedMoving()) {
-                    if (this.movePiece(enemy, enemy.getDirection())) {
-                        return { isWon: false, isLost: true }; // An enemy killed a hero
-                    }
-                    // An enemy move cannot cause a win condition.
+                    const isLost = this.movePiece(enemy, enemy.getDirection());
+                    currentStepMoveResults.push({ isLost: isLost });
+                }
+            }
+            // Process results after all enemies for this step have moved
+            for (const result of currentStepMoveResults) {
+                if (result.isLost) {
+                    return { isWon: false, isLost: true }; // An enemy killed a hero
                 }
             }
         }
+
+        // Reset moves for all pieces at the very end of the turn sequence.
+        this.wappo.resetMoves();
+        this.friends.forEach(f => f && f.resetMoves());
         this.enemies.forEach(e => e && e.resetMoves());
 
         // Final check, in case the board is clear and heroes are already on beehives
@@ -115,50 +122,66 @@ class GameLogic {
      * @returns {boolean} - True if the move resulted in a death, otherwise false.
      */
     movePiece(piece, dir) {
-        piece.incrementMoves();
+        const isFriend = piece instanceof Hero && piece !== this.wappo;
+        const isEnemy = piece instanceof Enemy;
+
         let target_cellXY = this.getTargetCell(piece, dir);
-        let dest_cell_type = this.getStaticCellType(target_cellXY);
 
         // Enemy-specific logic: turn around at walls
-        if (piece instanceof Enemy && dest_cell_type === Cell.STATIC_CELL_TYPE.WALL) {
+        if (isEnemy && this.getStaticCellType(target_cellXY) === Cell.STATIC_CELL_TYPE.WALL) {
             piece.turnAround();
-            // Recalculate target after turning
             target_cellXY = this.getTargetCell(piece, piece.getDirection());
-            dest_cell_type = this.getStaticCellType(target_cellXY);
         }
 
-        // --- Move Validation ---
-
-        // 1. Check for blocking by static terrain.
-        if (dest_cell_type === Cell.STATIC_CELL_TYPE.WALL) {
-            return false; // Blocked by wall.
-        }
-        // Heroes cannot move into GAPs, but the game logic allows Enemies to.
-        if (piece instanceof Hero && dest_cell_type === Cell.STATIC_CELL_TYPE.GAP) {
-            return false; // Hero blocked by gap.
-        }
-
-        const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
-        const dest_cell = this.cells[target_cellNum];
-
-        // 2. Check for blocking by other heroes.
-        // Enemies can stack, so we only check for Hero-on-Hero blocking.
-        if (piece instanceof Hero && dest_cell.containsHero()) {
-            return false; // Blocked by a friendly piece.
-        }
-
-        // 3. Check for fatal interactions (traps, or colliding with an opponent).
-        if (this.isFatalMove(piece, dest_cell)) {
-            return true; // Death occurred.
-        }
+        const canMove = isEnemy ? this.canMoveEnemy(target_cellXY) : this.canMoveHero(target_cellXY);
 
         // --- Perform Move ---
-        // If we reach here, the move is valid and safe.
-        this.cells[piece.getLocation()].removePiece();
-        piece.setLocation(target_cellNum);
-        dest_cell.setMovableObj(piece);
+        if (canMove) {
+            piece.incrementMoves();
+
+            const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
+            const dest_cell = this.cells[target_cellNum];
+
+            if (this.isFatalMove(piece, dest_cell)) {
+                return true; // Death occurred.
+            }
+
+            this.cells[piece.getLocation()].removePiece();
+            piece.setLocation(target_cellNum);
+            dest_cell.setMovableObj(piece);
+        } else { // Blocked
+            if (!isFriend) {
+                // Wappo and Enemies consume their move even if blocked.
+                piece.incrementMoves();
+            }
+        }
 
         return false; // Move was successful and not fatal.
+    }
+
+    canMoveHero(target_cellXY) {
+        const dest_cell_type = this.getStaticCellType(target_cellXY);
+        if (dest_cell_type === Cell.STATIC_CELL_TYPE.WALL || dest_cell_type === Cell.STATIC_CELL_TYPE.GAP) {
+            return false;
+        }
+        const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
+        if (this.cells[target_cellNum].containsHero()) {
+            return false;
+        }
+        return true;
+    }
+
+    canMoveEnemy(target_cellXY) {
+        const dest_cell_type = this.getStaticCellType(target_cellXY);
+        if (dest_cell_type === Cell.STATIC_CELL_TYPE.WALL) {
+            return false;
+        }
+        // According to the original Java logic, enemies block each other.
+        const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
+        if (this.cells[target_cellNum].containsEnemy()) {
+            return false;
+        }
+        return true;
     }
 
     isFatalMove(piece, dest_cell) {

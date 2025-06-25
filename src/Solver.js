@@ -23,7 +23,7 @@ class Solver {
         const possibleMoves = [Enum.DIRECTION.NORTH, Enum.DIRECTION.SOUTH, Enum.DIRECTION.EAST, Enum.DIRECTION.WEST];
 
         // Limit search depth to prevent it from running forever on unsolvable/complex levels
-        const MAX_DEPTH = level.getBasescore() * 3; // Arbitrary limit based on level's base score
+        const MAX_DEPTH = level.getBasescore() * 10; // Arbitrary limit based on level's base score
 
         while (queue.length > 0) {
             const { state, path } = queue.shift(); // Get the next state to explore

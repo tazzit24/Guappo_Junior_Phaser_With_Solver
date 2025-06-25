@@ -273,7 +273,7 @@ class SceneMain extends Phaser.Scene {
             const enemyMovePromises = [];
             for (const enemy of this.enemies) {
                 if (enemy && !enemy.finishedMoving()) {
-                    enemyMovePromises.push(this.movePieceAnimated(enemy, enemy.getDirection(), true)); // Pass true for enemy
+                    enemyMovePromises.push(this.movePieceAnimated(enemy, enemy.getDirection()));
                 }
             }
             // Wait for all enemies to complete their current step's animation
@@ -295,11 +295,12 @@ class SceneMain extends Phaser.Scene {
      * Handles the movement logic and animation for a single piece.
      * @param {MovablePiece} piece - The piece to move (Wappo, Friend, or Enemy).
      * @param {string} direction - The direction to move.
-     * @param {boolean} [isEnemy=false] - True if the piece is an enemy, for specific enemy logic.
      * @returns {Promise<{isLost: boolean}>} A promise that resolves with whether the move resulted in a loss.
      */
-    async movePieceAnimated(piece, direction, isEnemy = false) {
-        piece.incrementMoves();
+    async movePieceAnimated(piece, direction) {
+        const isEnemy = piece instanceof Enemy;
+        const isFriend = !isEnemy && piece !== this.wappo;
+
         let target_cellXY = this.getTargetCell(piece, direction);
         let dest_cell_type = this.getStaticCellType(target_cellXY);
 
@@ -317,12 +318,16 @@ class SceneMain extends Phaser.Scene {
         let canMove = false;
         if (isEnemy) {
             canMove = this.canMoveEnemy(piece, target_cellXY);
-        } else { // Hero
+        } else { // Hero (Wappo or Friend)
             canMove = this.canMoveHero(piece, target_cellXY);
         }
 
         let died = false;
         if (canMove) {
+            // A move is only consumed if it is successful.
+            // This applies to all piece types now.
+            piece.incrementMoves();
+
             // Check for fatal interaction BEFORE the move is performed in the state
             died = this.heroIsDead(piece, dest_cell);
 
@@ -334,8 +339,12 @@ class SceneMain extends Phaser.Scene {
 
             // Animate the move
             await this.animateMove(piece, dest_cell);
-        } else {
-            // Animate staying in place
+        } else { // Blocked
+            if (!isFriend) {
+                // Wappo and Enemies consume their move even if blocked.
+                piece.incrementMoves();
+            }
+             // Friends do NOT consume a move if blocked. They will try again on the next tick.
             await this.animateStay(piece);
         }
 
@@ -400,10 +409,12 @@ class SceneMain extends Phaser.Scene {
         var dest_cell_type = this.getStaticCellType(target_cellXY);
         if (dest_cell_type == Cell.STATIC_CELL_TYPE.WALL) {
             return false;
-        } else {
-            // As per previous discussions, enemies can stack.
-            return true;
         }
+        // According to the original Java logic, enemies block each other.
+        if (this.cells[target_cellNum].containsEnemy()) {
+            return false;
+        }
+        return true;
     }
 
     checkIfWon() {
