@@ -69,41 +69,43 @@ class GameLogic {
         const maxFriendSteps = friendSteps.length > 0 ? Math.max(...friendSteps) : 0;
 
         for (let i = 0; i < maxFriendSteps; i++) {
-            const currentStepMoveResults = []; // To store the outcome of each friend's move for this step
-            for (const friend of this.friends) {
+            // Move friends sequentially for each step to prevent race conditions,
+            // matching the updated logic in SceneMain.js.
+            for (const friend of this.friends.filter(f => f)) {
                 if (friend && !friend.finishedMoving()) {
-                // Simulate the move for this friend. movePiece returns true if death.
                     const isLost = this.movePiece(friend, direction);
-                    currentStepMoveResults.push({ isLost: isLost }); // Store the result
-                }
-            }
-            // Now, process the results of all friends' moves for this step,
-            // mirroring the `Promise.all` and subsequent loop in SceneMain.js.
-            for (const result of currentStepMoveResults) {
-                if (result.isLost) {
-                    return { isWon: false, isLost: true }; // A friend died
-                }
-                if (this.checkIfWon()) {
-                    return { isWon: true, isLost: false }; // A win occurred
+                    if (isLost) {
+                        return { isWon: false, isLost: true }; // A friend died
+                    }
+                    if (this.checkIfWon()) {
+                        return { isWon: true, isLost: false }; // A win occurred
+                    }
                 }
             }
         }
 
         // --- Enemies' Moves ---
-        const enemySteps = this.enemies.filter(e => e).map(e => e.getStep());
-        const maxEnemySteps = enemySteps.length > 0 ? Math.max(...enemySteps) : 0;
-        for (let i = 0; i < maxEnemySteps; i++) {
-            const currentStepMoveResults = [];
-            for (const enemy of this.enemies) {
-                if (enemy && !enemy.finishedMoving()) {
-                    const isLost = this.movePiece(enemy, enemy.getDirection());
-                    currentStepMoveResults.push({ isLost: isLost });
-                }
-            }
-            // Process results after all enemies for this step have moved
-            for (const result of currentStepMoveResults) {
-                if (result.isLost) {
-                    return { isWon: false, isLost: true }; // An enemy killed a hero
+        // This logic now mirrors SceneMain.js: enemies are sorted by axis (H, V, D)
+        // and moved sequentially for each step to ensure deterministic behavior.
+        const activeEnemies = this.enemies.filter(e => e);
+        if (activeEnemies.length > 0) {
+            const enemySteps = activeEnemies.map(e => e.getStep());
+            const maxEnemySteps = Math.max(...enemySteps);
+
+            const sortedEnemies = activeEnemies.sort((a, b) => {
+                const axisOrder = { 'H': 0, 'V': 1, 'D': 2 };
+                return axisOrder[a.getAxis()] - axisOrder[b.getAxis()];
+            });
+
+            for (let i = 0; i < maxEnemySteps; i++) {
+                for (const enemy of sortedEnemies) {
+                    if (enemy && !enemy.finishedMoving()) {
+                        const isLost = this.movePiece(enemy, enemy.getDirection());
+                        if (isLost) {
+                            // If an enemy move results in a loss, the turn ends immediately.
+                            return { isWon: false, isLost: true };
+                        }
+                    }
                 }
             }
         }

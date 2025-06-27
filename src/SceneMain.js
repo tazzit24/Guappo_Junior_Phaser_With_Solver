@@ -247,42 +247,46 @@ class SceneMain extends Phaser.Scene {
         const maxFriendSteps = friendSteps.length > 0 ? Math.max(...friendSteps) : 0;
 
         for (let i = 0; i < maxFriendSteps; i++) {
-            const friendMovePromises = [];
-            for (const friend of this.friends) {
+            // Move friends sequentially for each step to prevent race conditions,
+            // similar to how enemies are handled.
+            for (const friend of this.friends.filter(f => f)) { // Ensure we iterate over active friends
                 if (friend && !friend.finishedMoving()) {
-                    friendMovePromises.push(this.movePieceAnimated(friend, playerDirection));
-                }
-            }
-            // Wait for all friends to complete their current step's animation
-            const results = await Promise.all(friendMovePromises);
-            for (const result of results) {
-                if (result.isLost) {
-                    return { isWon: false, isLost: true };
-                }
-                if (this.checkIfWon()) {
-                    return { isWon: true, isLost: false };
+                    const result = await this.movePieceAnimated(friend, playerDirection);
+                    if (result.isLost) {
+                        return { isWon: false, isLost: true };
+                    }
+                    if (this.checkIfWon()) {
+                        return { isWon: true, isLost: false };
+                    }
                 }
             }
         }
 
         // --- Enemies' Moves ---
-        const enemySteps = this.enemies.filter(e => e).map(e => e.getStep());
-        const maxEnemySteps = enemySteps.length > 0 ? Math.max(...enemySteps) : 0;
+        const activeEnemies = this.enemies.filter(e => e);
+        if (activeEnemies.length > 0) {
+            const enemySteps = activeEnemies.map(e => e.getStep());
+            const maxEnemySteps = Math.max(...enemySteps);
 
-        for (let i = 0; i < maxEnemySteps; i++) {
-            const enemyMovePromises = [];
-            for (const enemy of this.enemies) {
-                if (enemy && !enemy.finishedMoving()) {
-                    enemyMovePromises.push(this.movePieceAnimated(enemy, enemy.getDirection()));
+            // Create a sorted list of enemies based on their axis: H -> V -> D
+            // This ensures a deterministic move order as per the original game's rules.
+            const sortedEnemies = activeEnemies.sort((a, b) => {
+                const axisOrder = { 'H': 0, 'V': 1, 'D': 2 };
+                return axisOrder[a.getAxis()] - axisOrder[b.getAxis()];
+            });
+
+            for (let i = 0; i < maxEnemySteps; i++) {
+                // Move enemies sequentially within each step to respect collision rules.
+                // Awaiting each move prevents race conditions where two enemies might target the same cell.
+                for (const enemy of sortedEnemies) {
+                    if (enemy && !enemy.finishedMoving()) {
+                        const result = await this.movePieceAnimated(enemy, enemy.getDirection());
+                        if (result.isLost) {
+                            // If an enemy move results in a loss (e.g., moves onto Wappo), end the turn.
+                            return { isWon: false, isLost: true };
+                        }
+                    }
                 }
-            }
-            // Wait for all enemies to complete their current step's animation
-            const results = await Promise.all(enemyMovePromises);
-            for (const result of results) {
-                if (result.isLost) {
-                    return { isWon: false, isLost: true };
-                }
-                // Enemy moves cannot cause a win condition, so no checkIfWon here.
             }
         }
 
@@ -586,7 +590,8 @@ class SceneMain extends Phaser.Scene {
         // Disable all UI buttons to prevent interaction while the solver is running.
         this.uiButtons.forEach(button => button.disableButtonInteractive()); // Use new method
 
-        const solution = Solver.solve(this.level);
+        // Use the solver algorithm
+        const solution = Solver.solve(this.level, { algorithm: 'PureBacktracking' });
         console.log("Solver finished.");
         console.log(solution);
 
