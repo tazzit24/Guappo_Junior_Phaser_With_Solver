@@ -1,5 +1,7 @@
 'use strict';
 
+const CELL_SIZE = 100; // Define cell size as a constant for this scene
+
 class SceneMain extends Phaser.Scene {
 
     level;
@@ -12,7 +14,7 @@ class SceneMain extends Phaser.Scene {
     cursors;
 
     joystick_dir;
-    moves_counter;
+    moves_counter = 0;
     isAnimating = false; // Flag to prevent input during animation
     allFriendsMoved = false;
         
@@ -115,8 +117,8 @@ class SceneMain extends Phaser.Scene {
     // Draw static grid
         for (let i = 0; i < 36; i++) {
             let coords = getCoords(i);
-            let x = coords.x * cell_size;
-            let y = coords.y * cell_size;
+            let x = coords.x * CELL_SIZE;
+            let y = coords.y * CELL_SIZE;
             if (this.cells[i].isBeeHive()) {
                 this.add.image(x, y, 'beehive').setOrigin(0,0);
             } else if (this.cells[i].isGap()) {
@@ -133,8 +135,8 @@ class SceneMain extends Phaser.Scene {
         
         // Draw Wappo
         let coords = getCoords(this.wappo.getLocation());
-        let x = coords.x * cell_size;
-        let y = coords.y * cell_size;
+        let x = coords.x * CELL_SIZE;
+        let y = coords.y * CELL_SIZE;
         var img_wappo = this.add.image(x, y, 'wappo');
         img_wappo.setOrigin(0,0);
         this.wappo.setImg(img_wappo);
@@ -142,8 +144,8 @@ class SceneMain extends Phaser.Scene {
         // Draw Friends
         this.friends.forEach(friend => {
             let coords = getCoords(friend.getLocation());
-            let x = coords.x * cell_size;
-            let y = coords.y * cell_size;
+            let x = coords.x * CELL_SIZE;
+            let y = coords.y * CELL_SIZE;
             var img_friend = this.add.image(x, y, 'friend_' + friend.getStep());
             img_friend.setOrigin(0,0);
             friend.setImg(img_friend);
@@ -152,8 +154,8 @@ class SceneMain extends Phaser.Scene {
         // Draw Enemies
         this.enemies.forEach(enemy => {
             let coords = getCoords(enemy.getLocation());
-            let x = coords.x * cell_size;
-            let y = coords.y * cell_size;
+            let x = coords.x * CELL_SIZE;
+            let y = coords.y * CELL_SIZE;
             var img_enemy = this.add.image(x, y, 'enemy_' + enemy.getAxis() + "_" + enemy.getStep());
             img_enemy.setOrigin(0,0);
             // Flip default images based on enemy default direction
@@ -367,8 +369,8 @@ class SceneMain extends Phaser.Scene {
             this.tweens.add({
                 targets: obj.getImg(),
                 duration: 500, // Adjust animation speed as needed
-                x: coords.x * cell_size,
-                y: coords.y * cell_size,
+                x: coords.x * CELL_SIZE,
+                y: coords.y * CELL_SIZE,
                 ease: 'Power2',
                 onComplete: () => resolve()
             });

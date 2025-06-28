@@ -34,8 +34,4 @@ var config = {
     }
 };
 
-
-var cell_size = 100;
-var moves_counter = 0;
-
 var game = new Phaser.Game(config);
