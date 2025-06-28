@@ -88,6 +88,15 @@ class SceneMain extends Phaser.Scene {
         this.add.existing(button_solve);
         this.uiButtons.push(button_solve);
 
+    // Add Previous/Next Level buttons for debugging
+        var button_prev = new Button(this, 100, 645, 'PREV', {}, () => this.fireChangeLevel(-1));
+        this.add.existing(button_prev);
+        this.uiButtons.push(button_prev);
+
+        var button_next = new Button(this, 180, 645, 'NEXT', {}, () => this.fireChangeLevel(1));
+        this.add.existing(button_next);
+        this.uiButtons.push(button_next);
+
     // Create and fill cells array with static objects
         this.level.getBeehives().forEach(element => {this.cells[element] = new Cell(element, Cell.STATIC_CELL_TYPE.BEEHIVE);});
         this.level.getGaps().forEach(element => {this.cells[element] = new Cell(element, Cell.STATIC_CELL_TYPE.GAP);});
@@ -158,21 +167,9 @@ class SceneMain extends Phaser.Scene {
             let y = coords.y * CELL_SIZE;
             var img_enemy = this.add.image(x, y, 'enemy_' + enemy.getAxis() + "_" + enemy.getStep());
             img_enemy.setOrigin(0,0);
-            // Flip default images based on enemy default direction
-            if(enemy.getDirection() == Enum.DIRECTION.WEST) {
-                img_enemy.flipX = true;
-            } else if(enemy.getDirection() == Enum.DIRECTION.SOUTH) {
-                img_enemy.flipY = true;
-            } else if(enemy.getDirection() == Enum.DIRECTION.SOUTH_WEST) {
-                img_enemy.flipY = true;
-            } else if(enemy.getDirection() == Enum.DIRECTION.NORTH_EAST) {
-                img_enemy.flipX = true;
-            } else if(enemy.getDirection() == Enum.DIRECTION.SOUTH_EAST) {
-                img_enemy.flipX = true;
-                img_enemy.flipY = true;
-            }
             enemy.setImg(img_enemy);
-            
+            // Set initial orientation using the new robust method
+            this.updateEnemyImageDirection(enemy);
         }); 
             
         this.events.once('destroy', function () {
@@ -191,6 +188,9 @@ class SceneMain extends Phaser.Scene {
         this.cursors.down.on('down', () => this.fireUserInput(Enum.DIRECTION.SOUTH));
         this.cursors.left.on('down', () => this.fireUserInput(Enum.DIRECTION.WEST));
         this.cursors.right.on('down', () => this.fireUserInput(Enum.DIRECTION.EAST));
+
+        // TODO : Remove for production
+        this.runSolver();
     }
 
     //update() {}
@@ -227,6 +227,25 @@ class SceneMain extends Phaser.Scene {
     }
 
     /**
+     * Changes to the previous or next level for easier debugging.
+     * @param {number} delta - -1 for previous, 1 for next.
+     */
+    fireChangeLevel(delta) {
+        if (this.isAnimating) {
+            return;
+        }
+        
+        let newLevel = this.choosenLevel + delta;
+
+        // Assuming level range is 0-200 based on SceneHome.js
+        if (newLevel >= 0 && newLevel <= 200) {
+            this.scene.start('SceneMain', { "choosenLevel": newLevel });
+        } else {
+            console.log(`Level ${newLevel} is out of bounds (0-200).`);
+        }
+    }
+
+    /**
      * Orchestrates the entire turn sequence using chained tweens.
      * @param {string} playerDirection - The direction chosen by the player.
      * @returns {Promise<{isWon: boolean, isLost: boolean}>} A promise that resolves with the final game status for the turn.
@@ -240,36 +259,41 @@ class SceneMain extends Phaser.Scene {
         if (wappoMoveResult.isLost) {
             return { isWon: false, isLost: true };
         }
-        if (this.checkIfWon()) {
-            return { isWon: true, isLost: false };
-        }
 
         // --- Friends' Moves ---
-        const friendSteps = this.friends.filter(f => f).map(f => f.getStep());
-        const maxFriendSteps = friendSteps.length > 0 ? Math.max(...friendSteps) : 0;
+        // The movement phase is a series of "ticks". The loop continues as long as
+        // at least one piece moved in the previous tick.
+        let friendMovedInTick = true;
+        let friendTicks = 0;
+        const MAX_TICKS = 6; // Safety break to prevent infinite loops, as in the original game.
 
-        for (let i = 0; i < maxFriendSteps; i++) {
-            // Move friends sequentially for each step to prevent race conditions,
-            // similar to how enemies are handled.
-            for (const friend of this.friends.filter(f => f)) { // Ensure we iterate over active friends
+        while (friendMovedInTick && friendTicks < MAX_TICKS) {
+            friendMovedInTick = false;
+            friendTicks++;
+
+            for (const friend of this.friends.filter(f => f)) {
                 if (friend && !friend.finishedMoving()) {
+                    const originalLocation = friend.getLocation();
                     const result = await this.movePieceAnimated(friend, playerDirection);
                     if (result.isLost) {
                         return { isWon: false, isLost: true };
                     }
-                    if (this.checkIfWon()) {
-                        return { isWon: true, isLost: false };
+                    if (friend.getLocation() !== originalLocation) {
+                        friendMovedInTick = true;
                     }
                 }
             }
         }
 
         // --- Enemies' Moves ---
+        // The win condition is checked here, after friends move but before enemies move,
+        // which is consistent with the original game's state machine.
+        if (this.checkIfWon()) {
+            return { isWon: true, isLost: false };
+        }
+
         const activeEnemies = this.enemies.filter(e => e);
         if (activeEnemies.length > 0) {
-            const enemySteps = activeEnemies.map(e => e.getStep());
-            const maxEnemySteps = Math.max(...enemySteps);
-
             // Sort enemies deterministically to match the solver's logic:
             // 1. Primary sort by axis ('H' -> 'V' -> 'D').
             // 2. Secondary sort (tie-breaker) by the original 'order' property.
@@ -284,24 +308,39 @@ class SceneMain extends Phaser.Scene {
                 return a.getOrder() - b.getOrder();
             });
 
-            for (let i = 0; i < maxEnemySteps; i++) {
-                // Move enemies sequentially within each step to respect collision rules.
-                // Awaiting each move prevents race conditions where two enemies might target the same cell.
+            let enemyMovedInTick = true;
+            let enemyTicks = 0;
+
+            while (enemyMovedInTick && enemyTicks < MAX_TICKS) {
+                enemyMovedInTick = false;
+                enemyTicks++;
+
                 for (const enemy of sortedEnemies) {
                     if (enemy && !enemy.finishedMoving()) {
-                        const result = await this.movePieceAnimated(enemy, enemy.getDirection());
+                        const originalLocation = enemy.getLocation();
+                        let directionToMove = enemy.getDirection();
+                        // For diagonal enemies, redetermine the best direction for this turn.
+                        if (enemy.getAxis() === 'D') {
+                            directionToMove = this.determineDiagonalEnemyDirection(enemy);
+                            if (directionToMove !== enemy.getDirection()) {
+                                enemy.setDirection(directionToMove);
+                                this.updateEnemyImageDirection(enemy);
+                            }
+                        }
+                        const result = await this.movePieceAnimated(enemy, directionToMove);
                         if (result.isLost) {
                             // If an enemy move results in a loss (e.g., moves onto Wappo), end the turn.
                             return { isWon: false, isLost: true };
+                        }
+                        if (enemy.getLocation() !== originalLocation) {
+                            enemyMovedInTick = true;
                         }
                     }
                 }
             }
         }
 
-        // Final check after all pieces have moved
-        currentStatus.isWon = this.checkIfWon();
-        return currentStatus;
+        return { isWon: false, isLost: false }; // Turn ends, no win or loss this turn.
     }
 
     /**
@@ -318,8 +357,10 @@ class SceneMain extends Phaser.Scene {
         let dest_cell_type = this.getStaticCellType(target_cellXY);
 
         // Enemy-specific logic: turn around at walls
-        if (isEnemy && dest_cell_type === Cell.STATIC_CELL_TYPE.WALL) {
+        // This now only applies to H and V enemies. Diagonal logic is handled before this method is called.
+        if (isEnemy && piece.getAxis() !== 'D' && dest_cell_type === Cell.STATIC_CELL_TYPE.WALL) {
             piece.turnAround();
+            this.updateEnemyImageDirection(piece);
             // Recalculate target after turning
             target_cellXY = this.getTargetCell(piece, piece.getDirection());
             dest_cell_type = this.getStaticCellType(target_cellXY);
@@ -337,32 +378,34 @@ class SceneMain extends Phaser.Scene {
 
         let died = false;
         if (canMove) {
-            // A move is only consumed if it is successful.
-            // This applies to all piece types now.
-            piece.incrementMoves();
+            piece.incrementMoves(); // All pieces consume a move when successful.
 
             // Check for fatal interaction BEFORE the move is performed in the state
             died = this.heroIsDead(piece, dest_cell);
 
             // Perform the move in the game state
             const old_loc = piece.getLocation();
-            piece.setLocation(dest_cell.getCellNumber());
             this.cells[old_loc].removePiece();
+            piece.setLocation(target_cellNum);
             dest_cell.setMovableObj(piece);
 
             // Animate the move
-            await this.animateMove(piece, dest_cell);
+            await this.animateMove(piece, target_cellXY);
         } else { // Blocked
-            // A friend's move should only be consumed if blocked by a static obstacle (wall/gap).
-            // If blocked by another hero, it should wait for the path to clear.
-            const isBlockedByStatic = (dest_cell_type === Cell.STATIC_CELL_TYPE.WALL || dest_cell_type === Cell.STATIC_CELL_TYPE.GAP);
-
-            if (!isFriend || isBlockedByStatic) {
-                // Wappo, Enemies, and Friends blocked by static obstacles consume their move.
+            // According to the original logic, only Wappo and Enemies
+            // consume their move when blocked. Friends wait for the path to clear.
+            if (isEnemy) {
+                // An enemy blocked by another enemy does NOT consume a move. It waits.
+                const dest_cell = this.cells[getCellnum(target_cellXY.x, target_cellXY.y)];
+                if (!dest_cell || !dest_cell.containsEnemy()) {
+                    // Blocked by wall or hero, consume move.
+                    piece.incrementMoves();
+                }
+            } else if (!isFriend) { // Wappo is blocked
+                // Wappo always consumes a move when blocked.
                 piece.incrementMoves();
             }
-            // A friend blocked by another hero will not increment and will try again on the next tick.
-            await this.animateStay(piece); // Play the "cannot move" animation regardless.
+            await this.animateStay(piece);
         }
 
         return { isLost: died };
@@ -371,17 +414,16 @@ class SceneMain extends Phaser.Scene {
     /**
      * Animates a piece moving to a new cell.
      * @param {MovablePiece} obj - The piece to animate.
-     * @param {Cell} cell - The destination cell.
+     * @param {{x: number, y: number}} target_cellXY - The destination cell coordinates.
      * @returns {Promise<void>} A promise that resolves when the animation completes.
      */
-    animateMove(obj, cell) {
-        const coords = getCoords(cell.getCellNumber());
+    animateMove(obj, target_cellXY) {
         return new Promise(resolve => {
             this.tweens.add({
                 targets: obj.getImg(),
                 duration: 500, // Adjust animation speed as needed
-                x: coords.x * CELL_SIZE,
-                y: coords.y * CELL_SIZE,
+                x: target_cellXY.x * CELL_SIZE,
+                y: target_cellXY.y * CELL_SIZE,
                 ease: 'Power2',
                 onComplete: () => resolve()
             });
@@ -449,6 +491,88 @@ class SceneMain extends Phaser.Scene {
         return true;
     }
 
+    /**
+     * Determines the best direction for a diagonal enemy for the current turn,
+     * based on a prioritized search for an open path. This replicates the
+     * original game's `direction_diaBee` logic.
+     * @param {Enemy} enemy The diagonal enemy.
+     * @returns {string} The chosen direction for the turn.
+     */
+    determineDiagonalEnemyDirection(enemy) {
+        const priorities = {
+            [Enum.DIRECTION.NORTH_EAST]: [Enum.DIRECTION.NORTH_EAST, Enum.DIRECTION.SOUTH_EAST, Enum.DIRECTION.NORTH_WEST, Enum.DIRECTION.SOUTH_WEST],
+            [Enum.DIRECTION.SOUTH_EAST]: [Enum.DIRECTION.SOUTH_EAST, Enum.DIRECTION.NORTH_EAST, Enum.DIRECTION.SOUTH_WEST, Enum.DIRECTION.NORTH_WEST],
+            [Enum.DIRECTION.NORTH_WEST]: [Enum.DIRECTION.NORTH_WEST, Enum.DIRECTION.NORTH_EAST, Enum.DIRECTION.SOUTH_WEST, Enum.DIRECTION.SOUTH_EAST],
+            [Enum.DIRECTION.SOUTH_WEST]: [Enum.DIRECTION.SOUTH_WEST, Enum.DIRECTION.SOUTH_EAST, Enum.DIRECTION.NORTH_WEST, Enum.DIRECTION.NORTH_EAST]
+        };
+
+        const currentDirection = enemy.getDirection();
+        const searchOrder = priorities[currentDirection];
+
+        if (searchOrder) {
+            for (const nextDir of searchOrder) {
+                const targetXY = this.getTargetCell(enemy, nextDir);
+                // The original logic only checks for grid boundaries (walls), not other pieces.
+                if (this.getStaticCellType(targetXY) !== Cell.STATIC_CELL_TYPE.WALL) {
+                    return nextDir; // Found the first valid direction.
+                }
+            }
+        }
+
+        // Fallback, though one direction should always be valid unless completely boxed in.
+        return currentDirection;
+    }
+
+    /**
+     * Updates the visual orientation (flipX, flipY) of an enemy's sprite
+     * to match its current direction. This provides a robust, state-independent
+     * way to orient the sprites.
+     * @param {Enemy} enemy - The enemy whose image needs updating.
+     */
+    updateEnemyImageDirection(enemy) {
+        const img = enemy.getImg();
+        if (!img) return;
+
+        // Reset flips to a default state before applying new ones.
+        img.flipX = false;
+        img.flipY = false;
+
+        const dir = enemy.getDirection();
+        const axis = enemy.getAxis();
+
+        // This logic depends on the default orientation of the base sprite images.
+        // Assumed default orientations:
+        // H-axis: faces EAST
+        // V-axis: faces NORTH
+        // D-axis: faces NORTH_WEST
+
+        if (axis === 'H') {
+            if (dir === Enum.DIRECTION.WEST) {
+                img.flipX = true;
+            }
+        } else if (axis === 'V') {
+            if (dir === Enum.DIRECTION.SOUTH) {
+                img.flipY = true;
+            }
+        } else if (axis === 'D') {
+            switch (dir) {
+                case Enum.DIRECTION.NORTH_EAST:
+                    img.flipX = true;
+                    break;
+                case Enum.DIRECTION.SOUTH_WEST:
+                    img.flipY = true;
+                    break;
+                case Enum.DIRECTION.SOUTH_EAST:
+                    img.flipX = true;
+                    img.flipY = true;
+                    break;
+                // case Enum.DIRECTION.NORTH_WEST:
+                // (default, no flip needed)
+                //    break;
+            }
+        }
+    }
+
     // --- Scene Lifecycle Callbacks ---
     // This method is called when the scene is shut down (e.g., stopped or restarted).
     // It's crucial for cleaning up GameObjects and preventing memory leaks/ghost events.
@@ -496,7 +620,7 @@ class SceneMain extends Phaser.Scene {
     heroIsDead(obj_from, cell_to) {
         // Check collision with enemies and traps -> die
         if (obj_from instanceof Hero && (cell_to.containsEnemy() || cell_to.isTrap()) || obj_from instanceof Enemy && cell_to.containsHero()) {
-            return true;
+            return true; // Death occurred
         } else {
             return false;
         }

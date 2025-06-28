@@ -1,6 +1,7 @@
 class SceneHome extends Phaser.Scene {
 
     inputText;
+    uiButtons = [];
 
     constructor() {
         super('SceneHome');
@@ -9,6 +10,7 @@ class SceneHome extends Phaser.Scene {
     preload() {
         //this.load.html('levelform', './assets/level_form.html');
         this.load.plugin('rexinputtextplugin', './lib/rexinputtextplugin.min.js', true);
+        this.load.text('levels', 'assets/levels.json');
         this.load.image('logo', './assets/Guappo_Junior_logo.png');
     }
 
@@ -25,7 +27,7 @@ class SceneHome extends Phaser.Scene {
         const centerX = width / 2;
         const formY = 350;
 
-        this.add.text(centerX - 120, formY, 'Level', {
+        this.add.text(centerX - 180, formY, 'Level', {
             fontSize: '32px',
             fontFamily: '"Arial Black", Gadget, sans-serif',
             color: '#FFFFFF',
@@ -33,7 +35,7 @@ class SceneHome extends Phaser.Scene {
             strokeThickness: 4
         }).setOrigin(0.5);
 
-        this.inputText = this.add.rexInputText(centerX, formY, 120, 40, {
+        this.inputText = this.add.rexInputText(centerX - 60, formY, 120, 40, {
             type: 'number',
             text: '1',
             fontSize: '24px',
@@ -47,8 +49,29 @@ class SceneHome extends Phaser.Scene {
             this.launchLevel();
         });
 
-        var button_go = new Button(this, centerX + 120, formY, 'GO', {color: '#FFFFFF'} , () => this.launchLevel());
+        var button_go = new Button(this, centerX + 60, formY, 'GO', {color: '#FFFFFF'} , () => this.launchLevel());
         this.add.existing(button_go);
+        this.uiButtons.push(button_go);
+
+        var button_solve_all = new Button(this, centerX + 180, formY, 'SOLVE ALL', {color: '#FFFFFF'} , () => this.runBatchSolver());
+        this.add.existing(button_solve_all);
+        this.uiButtons.push(button_solve_all);
+
+        // Register the shutdown handler to clean up when the scene is stopped or restarted.
+        this.events.on('shutdown', this.onSceneShutdown, this);
+    }
+
+    onSceneShutdown() {
+        console.log("SceneHome shutdown initiated.");
+        // Explicitly disable interactivity and destroy buttons from the old scene instance
+        this.uiButtons.forEach(button => {
+            if (button && button.active) {
+                button.disableButtonInteractive();
+                button.destroy();
+            }
+        });
+        this.uiButtons = [];
+        this.input.keyboard.off('keydown-ENTER');
     }
 
     launchLevel() {
@@ -65,5 +88,42 @@ class SceneHome extends Phaser.Scene {
             // Corrected the typo in the alert message.
             alert("Choose between 1 and 200 (or 0 for the demo level)");
         }
+    }
+
+    async runBatchSolver() {
+        this.uiButtons.forEach(button => button.disableButtonInteractive());
+
+        const resultsDiv = document.getElementById('solver-results');
+        resultsDiv.innerHTML = 'Starting batch solve...<br>';
+
+        const levelsJson = JSON.parse(this.cache.text.get('levels'));
+        const totalLevels = 200;
+
+        for (let i = 0; i <= totalLevels; i++) {
+            const lvlJson = levelsJson.levels.find(record => record.level == i);
+            if (!lvlJson) {
+                continue;
+            }
+
+            const level = new Level(lvlJson);
+            const solution = Solver.solve(level, { algorithm: 'PureBacktracking' });
+
+            let resultLine = `Level ${level.getId()} : basescore ${level.getBasescore()}, solved ${solution.solved}`;
+            if (solution.solved) {
+                const path = solution.path.map((dir, index) => `${index}:${dir.charAt(0)}`).join(', ');
+                resultLine += ` (${path})`;
+            }
+            resultsDiv.innerHTML += resultLine + '<br>';
+            resultsDiv.scrollTop = resultsDiv.scrollHeight; // Auto-scroll to bottom
+
+            // This is crucial to prevent the browser from freezing.
+            // It yields control back to the browser's event loop for a moment.
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        resultsDiv.innerHTML += 'Batch solve finished.<br>';
+        resultsDiv.scrollTop = resultsDiv.scrollHeight;
+
+        this.uiButtons.forEach(button => button.enableButtonInteractive());
     }
 }

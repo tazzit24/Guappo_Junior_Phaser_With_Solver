@@ -20,59 +20,37 @@ class Enemy extends MovablePiece {
         return this.direction;
     }
 
+    setDirection(newDirection) {
+        this.direction = newDirection;
+    }
+
     turnAround() {
+        // This method now only handles simple direction reversal for H and V enemies.
+        // Image flipping and complex diagonal logic are handled by the Scene/GameLogic.
         switch (this.direction) {
-            case DIRECTION.NORTH:
-                this.direction = DIRECTION.SOUTH;
-                if (super.getImg()) {
-                    super.getImg().flipY = !super.getImg().flipY;
-                }
+            case Enum.DIRECTION.NORTH:
+                this.direction = Enum.DIRECTION.SOUTH;
                 break;
-            case DIRECTION.SOUTH:
-                this.direction = DIRECTION.NORTH;
-                if (super.getImg()) {
-                    super.getImg().flipY = !super.getImg().flipY;
-                }
+            case Enum.DIRECTION.SOUTH:
+                this.direction = Enum.DIRECTION.NORTH;
                 break;
-            case DIRECTION.WEST:
-                this.direction = DIRECTION.EAST;
-                if (super.getImg()) {
-                    super.getImg().flipX = !super.getImg().flipX;
-                }
+            case Enum.DIRECTION.WEST:
+                this.direction = Enum.DIRECTION.EAST;
                 break;
-            case DIRECTION.EAST:
-                this.direction = DIRECTION.WEST;
-                if (super.getImg()) {
-                    super.getImg().flipX = !super.getImg().flipX;
-                }
+            case Enum.DIRECTION.EAST:
+                this.direction = Enum.DIRECTION.WEST;
                 break;
-            case DIRECTION.NORTH_EAST:
-                this.direction = DIRECTION.SOUTH_WEST;
-                if (super.getImg()) {
-                    super.getImg().flipX = !super.getImg().flipX;
-                    super.getImg().flipY = !super.getImg().flipY;
-                }
+            case Enum.DIRECTION.NORTH_EAST:
+                this.direction = Enum.DIRECTION.SOUTH_WEST;
                 break;
-            case DIRECTION.SOUTH_WEST:
-                this.direction = DIRECTION.NORTH_EAST;
-                if (super.getImg()) {
-                    super.getImg().flipX = !super.getImg().flipX;
-                    super.getImg().flipY = !super.getImg().flipY;
-                }
+            case Enum.DIRECTION.SOUTH_WEST:
+                this.direction = Enum.DIRECTION.NORTH_EAST;
                 break;
-            case DIRECTION.NORTH_WEST:
-                this.direction = DIRECTION.SOUTH_EAST;
-                if (super.getImg()) {
-                    super.getImg().flipX = !super.getImg().flipX;
-                    super.getImg().flipY = !super.getImg().flipY;
-                }
+            case Enum.DIRECTION.NORTH_WEST:
+                this.direction = Enum.DIRECTION.SOUTH_EAST;
                 break;
-            case DIRECTION.SOUTH_EAST:
-                this.direction = DIRECTION.NORTH_WEST;
-                if (super.getImg()) {
-                    super.getImg().flipX = !super.getImg().flipX;
-                    super.getImg().flipY = !super.getImg().flipY;
-                }
+            case Enum.DIRECTION.SOUTH_EAST:
+                this.direction = Enum.DIRECTION.NORTH_WEST;
                 break;
         }
     } 

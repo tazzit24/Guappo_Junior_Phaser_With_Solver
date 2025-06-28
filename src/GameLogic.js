@@ -59,38 +59,41 @@ class GameLogic {
         if (this.movePiece(this.wappo, direction)) {
             return { isWon: false, isLost: true }; // Wappo died
         }
-        // A win is possible if Wappo was the only piece left and moved onto a beehive.
-        if (this.checkIfWon()) {
-            return { isWon: true, isLost: false };
-        }
 
         // --- Friends' Moves ---
-        const friendSteps = this.friends.filter(f => f).map(f => f.getStep());
-        const maxFriendSteps = friendSteps.length > 0 ? Math.max(...friendSteps) : 0;
+        // The movement phase is a series of "ticks". The loop continues as long as
+        // at least one piece moved in the previous tick.
+        let friendMovedInTick = true;
+        let friendTicks = 0;
+        const MAX_TICKS = 6; // Safety break to prevent infinite loops, as in the original game.
 
-        for (let i = 0; i < maxFriendSteps; i++) {
-            // Move friends sequentially for each step to prevent race conditions,
-            // matching the updated logic in SceneMain.js.
+        while (friendMovedInTick && friendTicks < MAX_TICKS) {
+            friendMovedInTick = false;
+            friendTicks++;
+
             for (const friend of this.friends.filter(f => f)) {
                 if (friend && !friend.finishedMoving()) {
+                    const originalLocation = friend.getLocation();
                     const isLost = this.movePiece(friend, direction);
                     if (isLost) {
                         return { isWon: false, isLost: true }; // A friend died
                     }
-                    if (this.checkIfWon()) {
-                        return { isWon: true, isLost: false }; // A win occurred
+                    if (friend.getLocation() !== originalLocation) {
+                        friendMovedInTick = true;
                     }
                 }
             }
         }
 
         // --- Enemies' Moves ---
-        // This logic mirrors SceneMain.js: enemies are sorted by axis (H, V, D)
-        // and moved sequentially for each step to ensure deterministic behavior.
+        // The win condition is checked here, after friends move but before enemies move,
+        // which is consistent with the original game's state machine.
+        if (this.checkIfWon()) {
+            return { isWon: true, isLost: false };
+        }
+
         const activeEnemies = this.enemies.filter(e => e);
         if (activeEnemies.length > 0) {
-            const enemySteps = activeEnemies.map(e => e.getStep());
-            const maxEnemySteps = Math.max(...enemySteps);
 
             // Sort enemies deterministically to match SceneMain.js:
             // 1. Primary sort by axis ('H' -> 'V' -> 'D').
@@ -106,13 +109,29 @@ class GameLogic {
                 return a.getOrder() - b.getOrder();
             });
 
-            for (let i = 0; i < maxEnemySteps; i++) {
+            let enemyMovedInTick = true;
+            let enemyTicks = 0;
+
+            while (enemyMovedInTick && enemyTicks < MAX_TICKS) {
+                enemyMovedInTick = false;
+                enemyTicks++;
+
                 for (const enemy of sortedEnemies) {
                     if (enemy && !enemy.finishedMoving()) {
-                        const isLost = this.movePiece(enemy, enemy.getDirection());
+                        const originalLocation = enemy.getLocation();
+                        let directionToMove = enemy.getDirection();
+                        // For diagonal enemies, redetermine the best direction for this turn,
+                        // mimicking the original game's logic.
+                        if (enemy.getAxis() === 'D') {
+                            directionToMove = this.determineDiagonalEnemyDirection(enemy);
+                            enemy.setDirection(directionToMove);
+                        }
+                        const isLost = this.movePiece(enemy, directionToMove);
                         if (isLost) {
-                            // If an enemy move results in a loss, the turn ends immediately.
                             return { isWon: false, isLost: true };
+                        }
+                        if (enemy.getLocation() !== originalLocation) {
+                            enemyMovedInTick = true;
                         }
                     }
                 }
@@ -124,8 +143,7 @@ class GameLogic {
         this.friends.forEach(f => f && f.resetMoves());
         this.enemies.forEach(e => e && e.resetMoves());
 
-        // Final check, in case the board is clear and heroes are already on beehives
-        return { isWon: this.checkIfWon(), isLost: false };
+        return { isWon: false, isLost: false }; // Turn ends, no win or loss this turn.
     }
 
     /**
@@ -139,7 +157,8 @@ class GameLogic {
         let target_cellXY = this.getTargetCell(piece, dir);
 
         // Enemy-specific logic: turn around at walls
-        if (isEnemy && this.getStaticCellType(target_cellXY) === Cell.STATIC_CELL_TYPE.WALL) {
+        // This now only applies to H and V enemies. Diagonal logic is handled before this method is called.
+        if (isEnemy && piece.getAxis() !== 'D' && this.getStaticCellType(target_cellXY) === Cell.STATIC_CELL_TYPE.WALL) {
             piece.turnAround();
             target_cellXY = this.getTargetCell(piece, piece.getDirection());
         }
@@ -148,26 +167,31 @@ class GameLogic {
 
         // --- Perform Move ---
         if (canMove) {
-            piece.incrementMoves();
+            piece.incrementMoves(); // All pieces consume a move when successful.
 
             const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
             const dest_cell = this.cells[target_cellNum];
 
             if (this.isFatalMove(piece, dest_cell)) {
-                return true; // Death occurred.
+                return true; // Death occurred
             }
 
             this.cells[piece.getLocation()].removePiece();
             piece.setLocation(target_cellNum);
             dest_cell.setMovableObj(piece);
         } else { // Blocked
-            // A friend's move should only be consumed if blocked by a static obstacle (wall/gap).
-            // If blocked by another hero, it should wait for the path to clear.
-            const dest_cell_type = this.getStaticCellType(target_cellXY);
-            const isBlockedByStatic = (dest_cell_type === Cell.STATIC_CELL_TYPE.WALL || dest_cell_type === Cell.STATIC_CELL_TYPE.GAP);
-
-            if (!isFriend || isBlockedByStatic) {
-                // Wappo, Enemies, and Friends blocked by static obstacles consume their move.
+            // According to the original logic, only Wappo and Enemies
+            // consume their move when blocked. Friends wait for the path to clear.
+            // A friend who is blocked does nothing, allowing it to try again on the next tick.
+            if (isEnemy) {
+                // An enemy blocked by another enemy does NOT consume a move. It waits.
+                const dest_cell = this.cells[getCellnum(target_cellXY.x, target_cellXY.y)];
+                if (!dest_cell || !dest_cell.containsEnemy()) {
+                    // Blocked by wall or hero, consume move.
+                    piece.incrementMoves();
+                }
+            } else if (!isFriend) { // Wappo is blocked
+                // Wappo always consumes a move when blocked.
                 piece.incrementMoves();
             }
         }
@@ -198,6 +222,38 @@ class GameLogic {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Determines the best direction for a diagonal enemy for the current turn,
+     * based on a prioritized search for an open path. This replicates the
+     * original game's `direction_diaBee` logic.
+     * @param {Enemy} enemy The diagonal enemy.
+     * @returns {string} The chosen direction for the turn.
+     */
+    determineDiagonalEnemyDirection(enemy) {
+        const priorities = {
+            [Enum.DIRECTION.NORTH_EAST]: [Enum.DIRECTION.NORTH_EAST, Enum.DIRECTION.SOUTH_EAST, Enum.DIRECTION.NORTH_WEST, Enum.DIRECTION.SOUTH_WEST],
+            [Enum.DIRECTION.SOUTH_EAST]: [Enum.DIRECTION.SOUTH_EAST, Enum.DIRECTION.NORTH_EAST, Enum.DIRECTION.SOUTH_WEST, Enum.DIRECTION.NORTH_WEST],
+            [Enum.DIRECTION.NORTH_WEST]: [Enum.DIRECTION.NORTH_WEST, Enum.DIRECTION.NORTH_EAST, Enum.DIRECTION.SOUTH_WEST, Enum.DIRECTION.SOUTH_EAST],
+            [Enum.DIRECTION.SOUTH_WEST]: [Enum.DIRECTION.SOUTH_WEST, Enum.DIRECTION.SOUTH_EAST, Enum.DIRECTION.NORTH_WEST, Enum.DIRECTION.NORTH_EAST]
+        };
+
+        const currentDirection = enemy.getDirection();
+        const searchOrder = priorities[currentDirection];
+
+        if (searchOrder) {
+            for (const nextDir of searchOrder) {
+                const targetXY = this.getTargetCell(enemy, nextDir);
+                // The original logic only checks for grid boundaries (walls), not other pieces.
+                if (this.getStaticCellType(targetXY) !== Cell.STATIC_CELL_TYPE.WALL) {
+                    return nextDir; // Found the first valid direction.
+                }
+            }
+        }
+
+        // Fallback, though one direction should always be valid unless completely boxed in.
+        return currentDirection;
     }
 
     isFatalMove(piece, dest_cell) {
