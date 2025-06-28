@@ -85,16 +85,25 @@ class GameLogic {
         }
 
         // --- Enemies' Moves ---
-        // This logic now mirrors SceneMain.js: enemies are sorted by axis (H, V, D)
+        // This logic mirrors SceneMain.js: enemies are sorted by axis (H, V, D)
         // and moved sequentially for each step to ensure deterministic behavior.
         const activeEnemies = this.enemies.filter(e => e);
         if (activeEnemies.length > 0) {
             const enemySteps = activeEnemies.map(e => e.getStep());
             const maxEnemySteps = Math.max(...enemySteps);
 
+            // Sort enemies deterministically to match SceneMain.js:
+            // 1. Primary sort by axis ('H' -> 'V' -> 'D').
+            // 2. Secondary sort (tie-breaker) by the original 'order' property.
             const sortedEnemies = activeEnemies.sort((a, b) => {
                 const axisOrder = { 'H': 0, 'V': 1, 'D': 2 };
-                return axisOrder[a.getAxis()] - axisOrder[b.getAxis()];
+                const axisA = axisOrder[a.getAxis()];
+                const axisB = axisOrder[b.getAxis()];
+
+                if (axisA !== axisB) {
+                    return axisA - axisB;
+                }
+                return a.getOrder() - b.getOrder();
             });
 
             for (let i = 0; i < maxEnemySteps; i++) {
@@ -152,8 +161,13 @@ class GameLogic {
             piece.setLocation(target_cellNum);
             dest_cell.setMovableObj(piece);
         } else { // Blocked
-            if (!isFriend) {
-                // Wappo and Enemies consume their move even if blocked.
+            // A friend's move should only be consumed if blocked by a static obstacle (wall/gap).
+            // If blocked by another hero, it should wait for the path to clear.
+            const dest_cell_type = this.getStaticCellType(target_cellXY);
+            const isBlockedByStatic = (dest_cell_type === Cell.STATIC_CELL_TYPE.WALL || dest_cell_type === Cell.STATIC_CELL_TYPE.GAP);
+
+            if (!isFriend || isBlockedByStatic) {
+                // Wappo, Enemies, and Friends blocked by static obstacles consume their move.
                 piece.incrementMoves();
             }
         }

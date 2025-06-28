@@ -270,11 +270,18 @@ class SceneMain extends Phaser.Scene {
             const enemySteps = activeEnemies.map(e => e.getStep());
             const maxEnemySteps = Math.max(...enemySteps);
 
-            // Create a sorted list of enemies based on their axis: H -> V -> D
-            // This ensures a deterministic move order as per the original game's rules.
+            // Sort enemies deterministically to match the solver's logic:
+            // 1. Primary sort by axis ('H' -> 'V' -> 'D').
+            // 2. Secondary sort (tie-breaker) by the original 'order' property.
             const sortedEnemies = activeEnemies.sort((a, b) => {
                 const axisOrder = { 'H': 0, 'V': 1, 'D': 2 };
-                return axisOrder[a.getAxis()] - axisOrder[b.getAxis()];
+                const axisA = axisOrder[a.getAxis()];
+                const axisB = axisOrder[b.getAxis()];
+
+                if (axisA !== axisB) {
+                    return axisA - axisB;
+                }
+                return a.getOrder() - b.getOrder();
             });
 
             for (let i = 0; i < maxEnemySteps; i++) {
@@ -346,12 +353,16 @@ class SceneMain extends Phaser.Scene {
             // Animate the move
             await this.animateMove(piece, dest_cell);
         } else { // Blocked
-            if (!isFriend) {
-                // Wappo and Enemies consume their move even if blocked.
+            // A friend's move should only be consumed if blocked by a static obstacle (wall/gap).
+            // If blocked by another hero, it should wait for the path to clear.
+            const isBlockedByStatic = (dest_cell_type === Cell.STATIC_CELL_TYPE.WALL || dest_cell_type === Cell.STATIC_CELL_TYPE.GAP);
+
+            if (!isFriend || isBlockedByStatic) {
+                // Wappo, Enemies, and Friends blocked by static obstacles consume their move.
                 piece.incrementMoves();
             }
-             // Friends do NOT consume a move if blocked. They will try again on the next tick.
-            await this.animateStay(piece);
+            // A friend blocked by another hero will not increment and will try again on the next tick.
+            await this.animateStay(piece); // Play the "cannot move" animation regardless.
         }
 
         return { isLost: died };
