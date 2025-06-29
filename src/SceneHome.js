@@ -109,9 +109,10 @@ class SceneHome extends Phaser.Scene {
             const solution = Solver.solve(level, { algorithm: 'PureBacktracking' });
 
             let resultLine = `Level ${level.getId()} : basescore ${level.getBasescore()}, solved ${solution.solved}`;
-            if (solution.solved) {
+            if (solution.path) {
                 const path = solution.path.map((dir, index) => `${index}:${dir.charAt(0)}`).join(', ');
-                resultLine += ` (${path})`;
+                const pathLabel = solution.solved ? 'path' : 'abandoned';
+                resultLine += ` (${pathLabel}: ${path})`;
             }
             resultsDiv.innerHTML += resultLine + '<br>';
             resultsDiv.scrollTop = resultsDiv.scrollHeight; // Auto-scroll to bottom

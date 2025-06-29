@@ -134,13 +134,13 @@ class Solver {
         // The max depth is directly tied to the level's basescore, as per user's request.
         const MAX_DEPTH = level.getBasescore();
 
-        const solutionPath = this._pureBacktrackingRecursive(initialLogic, [], MAX_DEPTH);
+        const result = this._pureBacktrackingRecursive(initialLogic, [], MAX_DEPTH);
 
-        if (solutionPath) {
-            return { solved: true, path: solutionPath, algorithm: 'PureBacktracking' };
-        } else {
-            return { solved: false, path: null, algorithm: 'PureBacktracking' };
-        }
+        return {
+            solved: result.solved,
+            path: result.path,
+            algorithm: 'PureBacktracking'
+        };
     }
 
     /**
@@ -149,22 +149,29 @@ class Solver {
      */
     static _pureBacktrackingRecursive(logic, currentPath, maxDepth) {
         if (currentPath.length >= maxDepth) {
-            return null; // Reached max depth without a solution
+            return { solved: false, path: currentPath }; // Reached max depth
         }
 
         const currentState = logic.getStateSnapshot(); // Snapshot to restore for next branches
+        let longestFailedPath = currentPath;
+
         const possibleMoves = [Enum.DIRECTION.NORTH, Enum.DIRECTION.SOUTH, Enum.DIRECTION.EAST, Enum.DIRECTION.WEST];
         for (const move of possibleMoves) {
             const nextLogic = new GameLogic(logic.level);
             nextLogic.loadStateFromSnapshot(currentState); // Restore state for this branch
             const result = nextLogic.simulateTurn(move);
-            if (result.isWon) return [...currentPath, move];
+
+            if (result.isWon) return { solved: true, path: [...currentPath, move] };
+
             if (!result.isLost) {
-                const solution = this._pureBacktrackingRecursive(nextLogic, [...currentPath, move], maxDepth);
-                if (solution) return solution;
+                const subResult = this._pureBacktrackingRecursive(nextLogic, [...currentPath, move], maxDepth);
+                if (subResult.solved) return subResult; // Propagate solution
+                if (subResult.path.length > longestFailedPath.length) {
+                    longestFailedPath = subResult.path;
+                }
             }
         }
-        return null; // No solution found from this path
+        return { solved: false, path: longestFailedPath }; // No solution found from this path
     }
 
     /**
