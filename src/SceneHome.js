@@ -90,41 +90,53 @@ class SceneHome extends Phaser.Scene {
         }
     }
 
-    async runBatchSolver() {
+    runBatchSolver() {
         this.uiButtons.forEach(button => button.disableButtonInteractive());
 
         const resultsDiv = document.getElementById('solver-results');
-        resultsDiv.innerHTML = 'Starting batch solve...<br>';
+        // Clear previous results and add a starting message
+        resultsDiv.innerHTML = '';
+        const startElement = document.createElement('div');
+        startElement.textContent = 'Starting batch solve...';
+        resultsDiv.appendChild(startElement);
 
         const levelsJson = JSON.parse(this.cache.text.get('levels'));
         const totalLevels = 200;
+        let currentLevelIndex = 0;
 
-        for (let i = 0; i <= totalLevels; i++) {
-            const lvlJson = levelsJson.levels.find(record => record.level == i);
-            if (!lvlJson) {
-                continue;
+        const solveNext = () => {
+            if (currentLevelIndex > totalLevels) {
+                const finishedElement = document.createElement('div');
+                finishedElement.textContent = 'Batch solve finished.';
+                resultsDiv.appendChild(finishedElement);
+                resultsDiv.scrollTop = resultsDiv.scrollHeight;
+                this.uiButtons.forEach(button => button.enableButtonInteractive());
+                return;
             }
 
-            const level = new Level(lvlJson);
-            const solution = Solver.solve(level, { algorithm: 'PureBacktracking' });
+            const lvlJson = levelsJson.levels.find(record => record.level == currentLevelIndex);
+            if (lvlJson) {
+                const level = new Level(lvlJson);
+                const solution = Solver.solve(level, { algorithm: 'PureBacktracking' });
 
-            let resultLine = `Level ${level.getId()} : basescore ${level.getBasescore()}, solved ${solution.solved}`;
-            if (solution.path) {
-                const path = solution.path.map((dir, index) => `${index}:${dir.charAt(0)}`).join(', ');
-                const pathLabel = solution.solved ? 'path' : 'abandoned';
-                resultLine += ` (${pathLabel}: ${path})`;
+                let resultText = `Level ${level.getId()} : basescore ${level.getBasescore()}, solved ${solution.solved}`;
+                if (solution.path) {
+                    const path = solution.path.map((dir, index) => `${index}:${dir.charAt(0)}`).join(', ');
+                    const pathLabel = solution.solved ? 'path' : 'abandoned';
+                    resultText += ` (${pathLabel}: ${path})`;
+                }
+                const lineElement = document.createElement('div');
+                lineElement.textContent = resultText;
+                resultsDiv.appendChild(lineElement);
+                resultsDiv.scrollTop = resultsDiv.scrollHeight; // Auto-scroll to bottom
             }
-            resultsDiv.innerHTML += resultLine + '<br>';
-            resultsDiv.scrollTop = resultsDiv.scrollHeight; // Auto-scroll to bottom
 
-            // This is crucial to prevent the browser from freezing.
-            // It yields control back to the browser's event loop for a moment.
-            await new Promise(resolve => setTimeout(resolve, 0));
-        }
+            currentLevelIndex++;
+            // Use a small setTimeout delay to let the browser render the update before the next calculation.
+            setTimeout(solveNext, 1);
+        };
 
-        resultsDiv.innerHTML += 'Batch solve finished.<br>';
-        resultsDiv.scrollTop = resultsDiv.scrollHeight;
-
-        this.uiButtons.forEach(button => button.enableButtonInteractive());
+        // Start the first iteration
+        setTimeout(solveNext, 1);
     }
 }
