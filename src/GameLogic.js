@@ -156,11 +156,17 @@ class GameLogic {
 
         let target_cellXY = this.getTargetCell(piece, dir);
 
-        // Enemy-specific logic: turn around at walls
-        // This now only applies to H and V enemies. Diagonal logic is handled before this method is called.
-        if (isEnemy && piece.getAxis() !== 'D' && this.getStaticCellType(target_cellXY) === Cell.STATIC_CELL_TYPE.WALL) {
-            piece.turnAround();
-            target_cellXY = this.getTargetCell(piece, piece.getDirection());
+        // UNIFIED Enemy wall collision logic.
+        if (isEnemy && this.getStaticCellType(target_cellXY) === Cell.STATIC_CELL_TYPE.WALL) {
+            if (piece.getAxis() === 'D') {
+                // Diagonal enemies find a new priority direction.
+                const newDirection = this.determineDiagonalEnemyDirection(piece);
+                piece.setDirection(newDirection);
+            } else {
+                // Horizontal and Vertical enemies simply turn around.
+                piece.turnAround();
+            }
+            target_cellXY = this.getTargetCell(piece, piece.getDirection()); // Recalculate target with the new direction.
         }
 
         const canMove = isEnemy ? this.canMoveEnemy(target_cellXY) : this.canMoveHero(target_cellXY);

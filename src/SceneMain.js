@@ -356,12 +356,17 @@ class SceneMain extends Phaser.Scene {
         let target_cellXY = this.getTargetCell(piece, direction);
         let dest_cell_type = this.getStaticCellType(target_cellXY);
 
-        // Enemy-specific logic: turn around at walls
-        // This now only applies to H and V enemies. Diagonal logic is handled before this method is called.
-        if (isEnemy && piece.getAxis() !== 'D' && dest_cell_type === Cell.STATIC_CELL_TYPE.WALL) {
-            piece.turnAround();
-            this.updateEnemyImageDirection(piece);
-            // Recalculate target after turning
+        // UNIFIED Enemy wall collision logic.
+        if (isEnemy && dest_cell_type === Cell.STATIC_CELL_TYPE.WALL) {
+            if (piece.getAxis() === 'D') {
+                // Diagonal enemies find a new priority direction.
+                const newDirection = this.determineDiagonalEnemyDirection(piece);
+                piece.setDirection(newDirection);
+            } else {
+                // Horizontal and Vertical enemies simply turn around.
+                piece.turnAround();
+            }
+            this.updateEnemyImageDirection(piece); // Update visual orientation
             target_cellXY = this.getTargetCell(piece, piece.getDirection());
             dest_cell_type = this.getStaticCellType(target_cellXY);
         }
