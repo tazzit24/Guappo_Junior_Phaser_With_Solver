@@ -92,36 +92,39 @@ class GameLogic {
             return { isWon: true, isLost: false };
         }
 
-        const activeEnemies = this.enemies.filter(e => e);
-        if (activeEnemies.length > 0) {
+        // Sort enemies deterministically to match SceneMain.js:
+        // 1. Primary sort by axis ('H' -> 'V' -> 'D').
+        // 2. Secondary sort (tie-breaker) by the original 'order' property.
+        const sortedEnemies = this.enemies.filter(e => e).sort((a, b) => {
+            const axisOrder = { 'H': 0, 'V': 1, 'D': 2 };
+            const axisA = axisOrder[a.getAxis()];
+            const axisB = axisOrder[b.getAxis()];
 
-            // Sort enemies deterministically to match SceneMain.js:
-            // 1. Primary sort by axis ('H' -> 'V' -> 'D').
-            // 2. Secondary sort (tie-breaker) by the original 'order' property.
-            const sortedEnemies = activeEnemies.sort((a, b) => {
-                const axisOrder = { 'H': 0, 'V': 1, 'D': 2 };
-                const axisA = axisOrder[a.getAxis()];
-                const axisB = axisOrder[b.getAxis()];
+            if (axisA !== axisB) {
+                return axisA - axisB;
+            }
+            return a.getOrder() - b.getOrder();
+        });
 
-                if (axisA !== axisB) {
-                    return axisA - axisB;
-                }
-                return a.getOrder() - b.getOrder();
-            });
+        const maxSteps = sortedEnemies.length > 0 ? Math.max(...sortedEnemies.map(e => e.getStep())) : 0;
 
-            let enemyMovedInTick = true;
-            let enemyTicks = 0;
+        for (let stepRound = 1; stepRound <= maxSteps; stepRound++) {
+            // This is one "tour de pas"
+            // It uses a "tick" loop to resolve collisions for that specific step.
+            let movedInTick = true;
+            let ticks = 0;
 
-            while (enemyMovedInTick && enemyTicks < MAX_TICKS) {
-                enemyMovedInTick = false;
-                enemyTicks++;
+            while (movedInTick && ticks < MAX_TICKS) {
+                movedInTick = false;
+                ticks++;
 
                 for (const enemy of sortedEnemies) {
-                    if (enemy && !enemy.finishedMoving()) {
+                    // An enemy moves in this round if its total steps is >= current round
+                    // and it has not yet used its move for this round.
+                    if (enemy.getStep() >= stepRound && enemy.getMovesCounter() < stepRound) {
                         const originalLocation = enemy.getLocation();
                         let directionToMove = enemy.getDirection();
-                        // For diagonal enemies, redetermine the best direction for this turn,
-                        // mimicking the original game's logic.
+
                         if (enemy.getAxis() === 'D') {
                             directionToMove = this.determineDiagonalEnemyDirection(enemy);
                             enemy.setDirection(directionToMove);
@@ -131,7 +134,7 @@ class GameLogic {
                             return { isWon: false, isLost: true };
                         }
                         if (enemy.getLocation() !== originalLocation) {
-                            enemyMovedInTick = true;
+                            movedInTick = true;
                         }
                     }
                 }

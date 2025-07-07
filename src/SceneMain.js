@@ -308,32 +308,40 @@ class SceneMain extends Phaser.Scene {
                 return a.getOrder() - b.getOrder();
             });
 
-            let enemyMovedInTick = true;
-            let enemyTicks = 0;
+            const maxSteps = sortedEnemies.length > 0 ? Math.max(...sortedEnemies.map(e => e.getStep())) : 0;
 
-            while (enemyMovedInTick && enemyTicks < MAX_TICKS) {
-                enemyMovedInTick = false;
-                enemyTicks++;
+            for (let stepRound = 1; stepRound <= maxSteps; stepRound++) {
+                // This is one "tour de pas"
+                // It uses a "tick" loop to resolve collisions for that specific step.
+                let movedInTick = true;
+                let ticks = 0;
 
-                for (const enemy of sortedEnemies) {
-                    if (enemy && !enemy.finishedMoving()) {
-                        const originalLocation = enemy.getLocation();
-                        let directionToMove = enemy.getDirection();
-                        // For diagonal enemies, redetermine the best direction for this turn.
-                        if (enemy.getAxis() === 'D') {
-                            directionToMove = this.determineDiagonalEnemyDirection(enemy);
-                            if (directionToMove !== enemy.getDirection()) {
-                                enemy.setDirection(directionToMove);
-                                this.updateEnemyImageDirection(enemy);
+                while (movedInTick && ticks < MAX_TICKS) {
+                    movedInTick = false;
+                    ticks++;
+
+                    for (const enemy of sortedEnemies) {
+                        // An enemy moves in this round if its total steps is >= current round
+                        // and it has not yet used its move for this round.
+                        if (enemy.getStep() >= stepRound && enemy.getMovesCounter() < stepRound) {
+                            const originalLocation = enemy.getLocation();
+                            let directionToMove = enemy.getDirection();
+                            // For diagonal enemies, redetermine the best direction for this turn.
+                            if (enemy.getAxis() === 'D') {
+                                directionToMove = this.determineDiagonalEnemyDirection(enemy);
+                                if (directionToMove !== enemy.getDirection()) {
+                                    enemy.setDirection(directionToMove);
+                                    this.updateEnemyImageDirection(enemy);
+                                }
                             }
-                        }
-                        const result = await this.movePieceAnimated(enemy, directionToMove);
-                        if (result.isLost) {
-                            // If an enemy move results in a loss (e.g., moves onto Wappo), end the turn.
-                            return { isWon: false, isLost: true };
-                        }
-                        if (enemy.getLocation() !== originalLocation) {
-                            enemyMovedInTick = true;
+                            const result = await this.movePieceAnimated(enemy, directionToMove);
+                            if (result.isLost) {
+                                // If an enemy move results in a loss (e.g., moves onto Wappo), end the turn.
+                                return { isWon: false, isLost: true };
+                            }
+                            if (enemy.getLocation() !== originalLocation) {
+                                movedInTick = true;
+                            }
                         }
                     }
                 }
