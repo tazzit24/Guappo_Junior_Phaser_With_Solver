@@ -139,6 +139,14 @@ class GameLogic {
                     }
                 }
             }
+
+            // After all ticks for this step round, any enemy that was supposed to move but couldn't
+            // (because it was blocked by another enemy for all ticks) now consumes its move.
+            for (const enemy of sortedEnemies) {
+                if (enemy.getStep() >= stepRound && enemy.getMovesCounter() < stepRound) {
+                    enemy.incrementMoves();
+                }
+            }
         }
 
         // Reset moves for all pieces at the very end of the turn sequence.
@@ -193,10 +201,10 @@ class GameLogic {
             // consume their move when blocked. Friends wait for the path to clear.
             // A friend who is blocked does nothing, allowing it to try again on the next tick.
             if (isEnemy) {
-                // An enemy blocked by another enemy does NOT consume a move. It waits.
+                // An enemy blocked by another enemy does NOT consume a move. It waits for the next tick.
                 const dest_cell = this.cells[getCellnum(target_cellXY.x, target_cellXY.y)];
                 if (!dest_cell || !dest_cell.containsEnemy()) {
-                    // Blocked by wall or hero, consume move.
+                    // Blocked by wall or hero, consume move immediately.
                     piece.incrementMoves();
                 }
             } else if (!isFriend) { // Wappo is blocked

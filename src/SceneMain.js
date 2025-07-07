@@ -345,6 +345,14 @@ class SceneMain extends Phaser.Scene {
                         }
                     }
                 }
+
+                // After all ticks for this step round, any enemy that was supposed to move but couldn't
+                // (because it was blocked by another enemy for all ticks) now consumes its move.
+                for (const enemy of sortedEnemies) {
+                    if (enemy.getStep() >= stepRound && enemy.getMovesCounter() < stepRound) {
+                        enemy.incrementMoves();
+                    }
+                }
             }
         }
 
