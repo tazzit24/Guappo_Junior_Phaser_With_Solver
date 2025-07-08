@@ -320,12 +320,16 @@ class SceneMain extends Phaser.Scene {
                     movedInTick = false;
                     ticks++;
 
+                    const movesToAnimate = []; // 1. Collect moves for this tick
+
                     for (const enemy of sortedEnemies) {
                         // An enemy moves in this round if its total steps is >= current round
                         // and it has not yet used its move for this round.
                         if (enemy.getStep() >= stepRound && enemy.getMovesCounter() < stepRound) {
+                            // --- 2. Sequentially calculate logic for each enemy ---
                             const originalLocation = enemy.getLocation();
                             let directionToMove = enemy.getDirection();
+
                             // For diagonal enemies, redetermine the best direction for this turn.
                             if (enemy.getAxis() === 'D') {
                                 directionToMove = this.determineDiagonalEnemyDirection(enemy);
@@ -334,15 +338,55 @@ class SceneMain extends Phaser.Scene {
                                     this.updateEnemyImageDirection(enemy);
                                 }
                             }
-                            const result = await this.movePieceAnimated(enemy, directionToMove);
-                            if (result.isLost) {
-                                // If an enemy move results in a loss (e.g., moves onto Wappo), end the turn.
-                                return { isWon: false, isLost: true };
+
+                            // Inlined logic from movePieceAnimated, without the 'await'
+                            let target_cellXY = this.getTargetCell(enemy, directionToMove);
+                            if (this.getStaticCellType(target_cellXY) === Cell.STATIC_CELL_TYPE.WALL) {
+                                if (enemy.getAxis() === 'D') {
+                                    enemy.setDirection(this.determineDiagonalEnemyDirection(enemy));
+                                } else {
+                                    enemy.turnAround();
+                                }
+                                this.updateEnemyImageDirection(enemy);
+                                target_cellXY = this.getTargetCell(enemy, enemy.getDirection());
                             }
+
+                            const canMove = this.canMoveEnemy(enemy, target_cellXY);
+                            if (canMove) {
+                                enemy.incrementMoves();
+                                const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
+                                const dest_cell = this.cells[target_cellNum];
+
+                                if (this.heroIsDead(enemy, dest_cell)) {
+                                    // Loss is immediate. Animate this single death and stop everything.
+                                    await this.animateMove(enemy, target_cellXY);
+                                    return { isWon: false, isLost: true };
+                                }
+
+                                this.cells[enemy.getLocation()].removePiece();
+                                enemy.setLocation(target_cellNum);
+                                dest_cell.setMovableObj(enemy);
+                                movesToAnimate.push({ piece: enemy, toXY: target_cellXY, isBlocked: false });
+                            } else { // Blocked
+                                const dest_cell = this.cells[getCellnum(target_cellXY.x, target_cellXY.y)];
+                                if (!dest_cell || !dest_cell.containsEnemy()) {
+                                    enemy.incrementMoves();
+                                }
+                                movesToAnimate.push({ piece: enemy, isBlocked: true });
+                            }
+
                             if (enemy.getLocation() !== originalLocation) {
                                 movedInTick = true;
                             }
                         }
+                    }
+
+                    // --- 3. Animate all collected moves in parallel ---
+                    if (movesToAnimate.length > 0) {
+                        const promises = movesToAnimate.map(move => 
+                            move.isBlocked ? this.animateStay(move.piece) : this.animateMove(move.piece, move.toXY)
+                        );
+                        await Promise.all(promises);
                     }
                 }
 
