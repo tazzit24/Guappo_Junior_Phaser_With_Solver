@@ -315,12 +315,12 @@ class SceneMain extends Phaser.Scene {
                 // It uses a "tick" loop to resolve collisions for that specific step.
                 let movedInTick = true;
                 let ticks = 0;
+                const allMovesToAnimate = []; // Collect ALL moves for this step round
+                const blockedEnemies = new Set(); // Track enemies that were blocked this round
 
                 while (movedInTick && ticks < MAX_TICKS) {
                     movedInTick = false;
                     ticks++;
-
-                    const movesToAnimate = []; // 1. Collect moves for this tick
 
                     for (const enemy of sortedEnemies) {
                         // An enemy moves in this round if its total steps is >= current round
@@ -366,27 +366,30 @@ class SceneMain extends Phaser.Scene {
                                 this.cells[enemy.getLocation()].removePiece();
                                 enemy.setLocation(target_cellNum);
                                 dest_cell.setMovableObj(enemy);
-                                movesToAnimate.push({ piece: enemy, toXY: target_cellXY, isBlocked: false });
+                                // Remove any blocked animation for this enemy before adding the move animation
+                                const blockAnimIndex = allMovesToAnimate.findIndex(move => move.piece === enemy && move.isBlocked);
+                                if (blockAnimIndex !== -1) {
+                                    allMovesToAnimate.splice(blockAnimIndex, 1);
+                                }
+                                allMovesToAnimate.push({ piece: enemy, toXY: target_cellXY, isBlocked: false });
+                                // Remove from blocked set if it was there
+                                blockedEnemies.delete(enemy);
                             } else { // Blocked
                                 const dest_cell = this.cells[getCellnum(target_cellXY.x, target_cellXY.y)];
                                 if (!dest_cell || !dest_cell.containsEnemy()) {
                                     enemy.incrementMoves();
                                 }
-                                movesToAnimate.push({ piece: enemy, isBlocked: true });
+                                // Only add to blocked animation if not already blocked this round
+                                if (!blockedEnemies.has(enemy)) {
+                                    allMovesToAnimate.push({ piece: enemy, isBlocked: true });
+                                    blockedEnemies.add(enemy);
+                                }
                             }
 
                             if (enemy.getLocation() !== originalLocation) {
                                 movedInTick = true;
                             }
                         }
-                    }
-
-                    // --- 3. Animate all collected moves in parallel ---
-                    if (movesToAnimate.length > 0) {
-                        const promises = movesToAnimate.map(move => 
-                            move.isBlocked ? this.animateStay(move.piece) : this.animateMove(move.piece, move.toXY)
-                        );
-                        await Promise.all(promises);
                     }
                 }
 
@@ -396,6 +399,14 @@ class SceneMain extends Phaser.Scene {
                     if (enemy.getStep() >= stepRound && enemy.getMovesCounter() < stepRound) {
                         enemy.incrementMoves();
                     }
+                }
+
+                // --- 3. Animate all collected moves for this step round in parallel ---
+                if (allMovesToAnimate.length > 0) {
+                    const promises = allMovesToAnimate.map(move => 
+                        move.isBlocked ? this.animateStay(move.piece) : this.animateMove(move.piece, move.toXY)
+                    );
+                    await Promise.all(promises);
                 }
             }
         }
