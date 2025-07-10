@@ -3,9 +3,8 @@
 const CELL_SIZE = 100; // Define cell size as a constant for this scene
 
 class SceneMain extends Phaser.Scene {
-
     level;
-    cells = [];
+    game; // Instance de GameLogic
     text_moves;
     wappo;
     friends = [];
@@ -14,10 +13,7 @@ class SceneMain extends Phaser.Scene {
     cursors;
 
     joystick_dir;
-    moves_counter = 0;
     isAnimating = false; // Flag to prevent input during animation
-    allFriendsMoved = false;
-        
 
     constructor() {
         super('SceneMain');
@@ -47,7 +43,7 @@ class SceneMain extends Phaser.Scene {
             url: 'lib/rexuiplugin.min.js',
             sceneKey: 'rexUI'
         });
-}
+    }
 
     create() {
         //this.cameras.main.setBackgroundColor('#000000');
@@ -56,15 +52,16 @@ class SceneMain extends Phaser.Scene {
         var lvlJson = levelsJson.levels.find(record => record.level == this.choosenLevel);
         console.log(lvlJson);
         this.level = new Level(lvlJson);
+        
+        // Create GameLogic instance
+        this.game = new GameLogic(this.level);
 
-    // Add level info
+        // Add level info
         this.add.text(0, 630, 'Level: ' + this.level.getId());
         this.text_moves = this.add.text(0, 660, '');
-        this.moves_counter = 0;
         this.updateMovesCounter();
         
-    // Add gamepad buttons
-        // Note: Buttons are added to uiButtons array for easy management
+        // Add gamepad buttons
         var button_up = new Button(this, 310, 620, 'UP', {} , () => this.fireUserInput(Enum.DIRECTION.NORTH));
         this.add.existing(button_up);
         this.uiButtons.push(button_up);
@@ -78,17 +75,17 @@ class SceneMain extends Phaser.Scene {
         this.add.existing(button_right);
         this.uiButtons.push(button_right);
     
-    // Add Menu button
+        // Add Menu button
         var button_go_home = new Button(this, 450, 650, 'HOME', {} , () => this.fireGoHome());
         this.add.existing(button_go_home);
         this.uiButtons.push(button_go_home);
 
-    // Add a Solver button
+        // Add a Solver button
         var button_solve = new Button(this, 520, 650, 'SOLVE', {color: '#FFFFFF'} , () => this.runSolver());
         this.add.existing(button_solve);
         this.uiButtons.push(button_solve);
 
-    // Add Previous/Next Level buttons for debugging
+        // Add Previous/Next Level buttons for debugging
         var button_prev = new Button(this, 100, 645, 'PREV', {}, () => this.fireChangeLevel(-1));
         this.add.existing(button_prev);
         this.uiButtons.push(button_prev);
@@ -97,52 +94,26 @@ class SceneMain extends Phaser.Scene {
         this.add.existing(button_next);
         this.uiButtons.push(button_next);
 
-    // Create and fill cells array with static objects
-        this.level.getBeehives().forEach(element => {this.cells[element] = new Cell(element, Cell.STATIC_CELL_TYPE.BEEHIVE);});
-        this.level.getGaps().forEach(element => {this.cells[element] = new Cell(element, Cell.STATIC_CELL_TYPE.GAP);});
-        this.level.getTraps().forEach(element => {this.cells[element] = new Cell(element, Cell.STATIC_CELL_TYPE.TRAP);});
-        // Fill remaining cells with VINE
-        for (let i = 0; i < 36; i++) {
-            if(this.cells[i] == null) {
-                this.cells[i] = new Cell(i, Cell.STATIC_CELL_TYPE.VINE);
-            }
-        }
-
-    // Create movable objects (heroes and enemies) and assign them to a cell
-        this.wappo = new Hero("Wappo", 1, this.level.getWappo(), 0);
-        this.cells[this.wappo.getLocation()].setMovableObj(this.wappo);
-
-        this.level.getFriends().forEach(element => {
-            let friend = this.friends[element.order] = new Hero("F"+element.order, element.step, element.cell, element.order);
-            this.cells[friend.getLocation()].setMovableObj(friend);
-        });
-
-        this.level.getEnemies().forEach(element => {
-            let enemy = this.enemies[element.order] = new Enemy("E"+element.order, element.axis, element.dir, element.step, element.cell, element.order);
-            this.cells[enemy.getLocation()].setMovableObj(enemy);
-        });
-
-
-    // Draw static grid
+        // Draw static grid
         for (let i = 0; i < 36; i++) {
             let coords = getCoords(i);
             let x = coords.x * CELL_SIZE;
             let y = coords.y * CELL_SIZE;
-            if (this.cells[i].isBeeHive()) {
+            let cell = this.game.cells[i];
+            if (cell.isBeeHive()) {
                 this.add.image(x, y, 'beehive').setOrigin(0,0);
-            } else if (this.cells[i].isGap()) {
+            } else if (cell.isGap()) {
                 this.add.image(x, y, 'gap').setOrigin(0,0);
-            } else if (this.cells[i].isTrap()) {
+            } else if (cell.isTrap()) {
                 this.add.image(x, y, 'trap').setOrigin(0,0);
             } else {
                 this.add.image(x, y, 'vine').setOrigin(0,0);
             }
         }
-        
 
-    // Draw movable pieces on grid and set Image to each object
-        
-        // Draw Wappo
+        // Draw movable pieces and link them to their GameLogic counterparts
+        // Link Wappo
+        this.wappo = this.game.wappo;
         let coords = getCoords(this.wappo.getLocation());
         let x = coords.x * CELL_SIZE;
         let y = coords.y * CELL_SIZE;
@@ -150,8 +121,10 @@ class SceneMain extends Phaser.Scene {
         img_wappo.setOrigin(0,0);
         this.wappo.setImg(img_wappo);
 
-        // Draw Friends
+        // Link Friends
+        this.friends = this.game.friends;
         this.friends.forEach(friend => {
+            if (!friend) return;
             let coords = getCoords(friend.getLocation());
             let x = coords.x * CELL_SIZE;
             let y = coords.y * CELL_SIZE;
@@ -160,25 +133,24 @@ class SceneMain extends Phaser.Scene {
             friend.setImg(img_friend);
         }); 
             
-        // Draw Enemies
+        // Link Enemies
+        this.enemies = this.game.enemies;
         this.enemies.forEach(enemy => {
+            if (!enemy) return;
             let coords = getCoords(enemy.getLocation());
             let x = coords.x * CELL_SIZE;
             let y = coords.y * CELL_SIZE;
             var img_enemy = this.add.image(x, y, 'enemy_' + enemy.getAxis() + "_" + enemy.getStep());
             img_enemy.setOrigin(0,0);
             enemy.setImg(img_enemy);
-            // Set initial orientation using the new robust method
             this.updateEnemyImageDirection(enemy);
         }); 
             
         this.events.once('destroy', function () {
             console.log("SceneMain destroyed");
-            // This 'destroy' event is for the scene object itself. Use 'shutdown' for cleanup.
-            //this.scene.add('SceneMain');
-          }, this);
+        }, this);
 
-        // Register the shutdown handler to clean up when the scene is stopped or restarted.
+        // Register the shutdown handler
         this.events.on('shutdown', this.onSceneShutdown, this);
 
         // Add keyboard controls
@@ -193,311 +165,52 @@ class SceneMain extends Phaser.Scene {
         this.runSolver();
     }
 
-    //update() {}
-
-    fireUserInput(dir) {
+    async fireUserInput(dir) {
         if (this.isAnimating) {
             console.log("Animation in progress, ignoring input.");
             return;
         }
 
         this.isAnimating = true;
-        this.uiButtons.forEach(button => button.disableButtonInteractive()); // Use new method
+        this.uiButtons.forEach(button => button.disableButtonInteractive());
 
-        this.moves_counter++;
+        const gameStatus = this.game.simulateTurn(dir);
         this.updateMovesCounter();
 
-        this.executeTurnSequence(dir)
-            .then(gameStatus => {
-                // After all animations for the turn are complete, update game status
-                this.updateGameStatus(gameStatus.isLost, gameStatus.isWon);
-            })
-            .catch(error => {
-                console.error("Error during turn sequence:", error);
-                // Handle unexpected errors, maybe show an error screen
-            })
-            .finally(() => {
-                // Always re-enable input and reset piece counters after a turn, regardless of outcome
-                this.wappo.resetMoves();
-                this.friends.forEach(f => f && f.resetMoves());
-                this.enemies.forEach(e => e && e.resetMoves());
-                this.uiButtons.forEach(button => button.enableButtonInteractive()); // Use new method
-                this.isAnimating = false;
+        // Animate all moves that occurred during the turn
+        await this.animateMoves(this.game.lastTurnMoves);
+
+        // Update game status after animations
+        this.updateGameStatus(gameStatus.isLost, gameStatus.isWon);
+
+        // Re-enable input
+        this.uiButtons.forEach(button => button.enableButtonInteractive());
+        this.isAnimating = false;
+    }
+
+    /**
+     * Animates all moves collected during a turn simulation
+     */
+    async animateMoves(moves) {
+        for (const moveSet of moves) {
+            const animPromises = moveSet.map(move => {
+                if (move.piece instanceof Enemy && move.dir) {
+                    this.updateEnemyImageDirection(move.piece, move.dir);
+                }
+                return move.isBlocked ? this.animateStay(move.piece) : this.animateMove(move.piece, move.toXY);
             });
-    }
-
-    /**
-     * Changes to the previous or next level for easier debugging.
-     * @param {number} delta - -1 for previous, 1 for next.
-     */
-    fireChangeLevel(delta) {
-        if (this.isAnimating) {
-            return;
+            await Promise.all(animPromises);
         }
-        
-        let newLevel = this.choosenLevel + delta;
-
-        // Assuming level range is 0-200 based on SceneHome.js
-        if (newLevel >= 0 && newLevel <= 200) {
-            this.scene.start('SceneMain', { "choosenLevel": newLevel });
-        } else {
-            console.log(`Level ${newLevel} is out of bounds (0-200).`);
-        }
-    }
-
-    /**
-     * Orchestrates the entire turn sequence using chained tweens.
-     * @param {string} playerDirection - The direction chosen by the player.
-     * @returns {Promise<{isWon: boolean, isLost: boolean}>} A promise that resolves with the final game status for the turn.
-     */
-    async executeTurnSequence(playerDirection) {
-        let currentStatus = { isWon: false, isLost: false };
-
-        // --- Wappo's Move ---
-        // Wappo always has 1 step.
-        const wappoMoveResult = await this.movePieceAnimated(this.wappo, playerDirection);
-        if (wappoMoveResult.isLost) {
-            return { isWon: false, isLost: true };
-        }
-
-        // --- Friends' Moves ---
-        // The movement phase is a series of "ticks". The loop continues as long as
-        // at least one piece moved in the previous tick.
-        let friendMovedInTick = true;
-        let friendTicks = 0;
-        const MAX_TICKS = 6; // Safety break to prevent infinite loops, as in the original game.
-
-        while (friendMovedInTick && friendTicks < MAX_TICKS) {
-            friendMovedInTick = false;
-            friendTicks++;
-
-            for (const friend of this.friends.filter(f => f)) {
-                if (friend && !friend.finishedMoving()) {
-                    const originalLocation = friend.getLocation();
-                    const result = await this.movePieceAnimated(friend, playerDirection);
-                    if (result.isLost) {
-                        return { isWon: false, isLost: true };
-                    }
-                    if (friend.getLocation() !== originalLocation) {
-                        friendMovedInTick = true;
-                    }
-                }
-            }
-        }
-
-        // --- Enemies' Moves ---
-        // The win condition is checked here, after friends move but before enemies move,
-        // which is consistent with the original game's state machine.
-        if (this.checkIfWon()) {
-            return { isWon: true, isLost: false };
-        }
-
-        const activeEnemies = this.enemies.filter(e => e);
-        if (activeEnemies.length > 0) {
-            // Sort enemies deterministically to match the solver's logic:
-            // 1. Primary sort by axis ('H' -> 'V' -> 'D').
-            // 2. Secondary sort (tie-breaker) by the original 'order' property.
-            const sortedEnemies = activeEnemies.sort((a, b) => {
-                const axisOrder = { 'H': 0, 'V': 1, 'D': 2 };
-                const axisA = axisOrder[a.getAxis()];
-                const axisB = axisOrder[b.getAxis()];
-
-                if (axisA !== axisB) {
-                    return axisA - axisB;
-                }
-                return a.getOrder() - b.getOrder();
-            });
-
-            const maxSteps = sortedEnemies.length > 0 ? Math.max(...sortedEnemies.map(e => e.getStep())) : 0;
-
-            for (let stepRound = 1; stepRound <= maxSteps; stepRound++) {
-                // This is one "tour de pas"
-                // It uses a "tick" loop to resolve collisions for that specific step.
-                let movedInTick = true;
-                let ticks = 0;
-                const allMovesToAnimate = []; // Collect ALL moves for this step round
-                const blockedEnemies = new Set(); // Track enemies that were blocked this round
-
-                while (movedInTick && ticks < MAX_TICKS) {
-                    movedInTick = false;
-                    ticks++;
-
-                    for (const enemy of sortedEnemies) {
-                        // An enemy moves in this round if its total steps is >= current round
-                        // and it has not yet used its move for this round.
-                        if (enemy.getStep() >= stepRound && enemy.getMovesCounter() < stepRound) {
-                            // --- 2. Sequentially calculate logic for each enemy ---
-                            const originalLocation = enemy.getLocation();
-                            let directionToMove = enemy.getDirection();
-
-                            // For diagonal enemies, redetermine the best direction for this turn.
-                            if (enemy.getAxis() === 'D') {
-                                directionToMove = this.determineDiagonalEnemyDirection(enemy);
-                                if (directionToMove !== enemy.getDirection()) {
-                                    enemy.setDirection(directionToMove);
-                                    this.updateEnemyImageDirection(enemy);
-                                }
-                            }
-
-                            // Inlined logic from movePieceAnimated, without the 'await'
-                            let target_cellXY = this.getTargetCell(enemy, directionToMove);
-                            if (this.getStaticCellType(target_cellXY) === Cell.STATIC_CELL_TYPE.WALL) {
-                                if (enemy.getAxis() === 'D') {
-                                    enemy.setDirection(this.determineDiagonalEnemyDirection(enemy));
-                                } else {
-                                    enemy.turnAround();
-                                }
-                                this.updateEnemyImageDirection(enemy);
-                                target_cellXY = this.getTargetCell(enemy, enemy.getDirection());
-                            }
-
-                            const canMove = this.canMoveEnemy(enemy, target_cellXY);
-                            if (canMove) {
-                                enemy.incrementMoves();
-                                const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
-                                const dest_cell = this.cells[target_cellNum];
-
-                                if (this.heroIsDead(enemy, dest_cell)) {
-                                    // Loss is immediate. Animate this single death and stop everything.
-                                    await this.animateMove(enemy, target_cellXY);
-                                    return { isWon: false, isLost: true };
-                                }
-
-                                this.cells[enemy.getLocation()].removePiece();
-                                enemy.setLocation(target_cellNum);
-                                dest_cell.setMovableObj(enemy);
-                                // Remove any blocked animation for this enemy before adding the move animation
-                                const blockAnimIndex = allMovesToAnimate.findIndex(move => move.piece === enemy && move.isBlocked);
-                                if (blockAnimIndex !== -1) {
-                                    allMovesToAnimate.splice(blockAnimIndex, 1);
-                                }
-                                allMovesToAnimate.push({ piece: enemy, toXY: target_cellXY, isBlocked: false });
-                                // Remove from blocked set if it was there
-                                blockedEnemies.delete(enemy);
-                            } else { // Blocked
-                                const dest_cell = this.cells[getCellnum(target_cellXY.x, target_cellXY.y)];
-                                if (!dest_cell || !dest_cell.containsEnemy()) {
-                                    enemy.incrementMoves();
-                                }
-                                // Only add to blocked animation if not already blocked this round
-                                if (!blockedEnemies.has(enemy)) {
-                                    allMovesToAnimate.push({ piece: enemy, isBlocked: true });
-                                    blockedEnemies.add(enemy);
-                                }
-                            }
-
-                            if (enemy.getLocation() !== originalLocation) {
-                                movedInTick = true;
-                            }
-                        }
-                    }
-                }
-
-                // After all ticks for this step round, any enemy that was supposed to move but couldn't
-                // (because it was blocked by another enemy for all ticks) now consumes its move.
-                for (const enemy of sortedEnemies) {
-                    if (enemy.getStep() >= stepRound && enemy.getMovesCounter() < stepRound) {
-                        enemy.incrementMoves();
-                    }
-                }
-
-                // --- 3. Animate all collected moves for this step round in parallel ---
-                if (allMovesToAnimate.length > 0) {
-                    const promises = allMovesToAnimate.map(move => 
-                        move.isBlocked ? this.animateStay(move.piece) : this.animateMove(move.piece, move.toXY)
-                    );
-                    await Promise.all(promises);
-                }
-            }
-        }
-
-        return { isWon: false, isLost: false }; // Turn ends, no win or loss this turn.
-    }
-
-    /**
-     * Handles the movement logic and animation for a single piece.
-     * @param {MovablePiece} piece - The piece to move (Wappo, Friend, or Enemy).
-     * @param {string} direction - The direction to move.
-     * @returns {Promise<{isLost: boolean}>} A promise that resolves with whether the move resulted in a loss.
-     */
-    async movePieceAnimated(piece, direction) {
-        const isEnemy = piece instanceof Enemy;
-        const isFriend = !isEnemy && piece !== this.wappo;
-
-        let target_cellXY = this.getTargetCell(piece, direction);
-        let dest_cell_type = this.getStaticCellType(target_cellXY);
-
-        // UNIFIED Enemy wall collision logic.
-        if (isEnemy && dest_cell_type === Cell.STATIC_CELL_TYPE.WALL) {
-            if (piece.getAxis() === 'D') {
-                // Diagonal enemies find a new priority direction.
-                const newDirection = this.determineDiagonalEnemyDirection(piece);
-                piece.setDirection(newDirection);
-            } else {
-                // Horizontal and Vertical enemies simply turn around.
-                piece.turnAround();
-            }
-            this.updateEnemyImageDirection(piece); // Update visual orientation
-            target_cellXY = this.getTargetCell(piece, piece.getDirection());
-            dest_cell_type = this.getStaticCellType(target_cellXY);
-        }
-
-        const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
-        const dest_cell = this.cells[target_cellNum];
-
-        let canMove = false;
-        if (isEnemy) {
-            canMove = this.canMoveEnemy(piece, target_cellXY);
-        } else { // Hero (Wappo or Friend)
-            canMove = this.canMoveHero(piece, target_cellXY);
-        }
-
-        let died = false;
-        if (canMove) {
-            piece.incrementMoves(); // All pieces consume a move when successful.
-
-            // Check for fatal interaction BEFORE the move is performed in the state
-            died = this.heroIsDead(piece, dest_cell);
-
-            // Perform the move in the game state
-            const old_loc = piece.getLocation();
-            this.cells[old_loc].removePiece();
-            piece.setLocation(target_cellNum);
-            dest_cell.setMovableObj(piece);
-
-            // Animate the move
-            await this.animateMove(piece, target_cellXY);
-        } else { // Blocked
-            // According to the original logic, only Wappo and Enemies
-            // consume their move when blocked. Friends wait for the path to clear.
-            if (isEnemy) {
-                // An enemy blocked by another enemy does NOT consume a move. It waits.
-                const dest_cell = this.cells[getCellnum(target_cellXY.x, target_cellXY.y)];
-                if (!dest_cell || !dest_cell.containsEnemy()) {
-                    // Blocked by wall or hero, consume move.
-                    piece.incrementMoves();
-                }
-            } else if (!isFriend) { // Wappo is blocked
-                // Wappo always consumes a move when blocked.
-                piece.incrementMoves();
-            }
-            await this.animateStay(piece);
-        }
-
-        return { isLost: died };
     }
 
     /**
      * Animates a piece moving to a new cell.
-     * @param {MovablePiece} obj - The piece to animate.
-     * @param {{x: number, y: number}} target_cellXY - The destination cell coordinates.
-     * @returns {Promise<void>} A promise that resolves when the animation completes.
      */
     animateMove(obj, target_cellXY) {
         return new Promise(resolve => {
             this.tweens.add({
                 targets: obj.getImg(),
-                duration: 500, // Adjust animation speed as needed
+                duration: 500,
                 x: target_cellXY.x * CELL_SIZE,
                 y: target_cellXY.y * CELL_SIZE,
                 ease: 'Power2',
@@ -508,14 +221,12 @@ class SceneMain extends Phaser.Scene {
 
     /**
      * Animates a piece staying in place (e.g., a small bounce).
-     * @param {MovablePiece} obj - The piece to animate.
-     * @returns {Promise<void>} A promise that resolves when the animation completes.
      */
     animateStay(obj) {
         return new Promise(resolve => {
             this.tweens.add({
                 targets: obj.getImg(),
-                duration: 250, // Shorter duration for staying animation
+                duration: 250,
                 scaleX: 0.9,
                 scaleY: 0.9,
                 yoyo: true,
@@ -525,102 +236,19 @@ class SceneMain extends Phaser.Scene {
         });
     }
 
-    // Removed old moveObjTo and stayHere as their logic is now integrated into movePieceAnimated
-    // and their animation parts are in animateMove/animateStay.
-    // moveObjTo(obj, cell) { ... }
-    // stayHere(obj) { ... }
-
-    // Removed old moveAllFriends and moveAllEnemies as their logic is now integrated into executeTurnSequence.
-    // moveAllFriends() { ... }
-    // moveAllEnemies() { ... }
-
-    // Removed getMaxStep and allMoved as they are no longer directly used in the new animation flow.
-    // getMaxStep(movableObjCollection) { ... }
-    // allMoved(movableObjCollection) { ... }
-
-    // The following methods remain largely the same, but are now called from movePieceAnimated
-    canMoveEnemy(enemyObj, target_cellXY) {
-        var target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
-        var dest_cell_type = this.getStaticCellType(target_cellXY);
-        if (dest_cell_type == Cell.STATIC_CELL_TYPE.WALL) {
-            return false;
-        }
-        // According to the original Java logic, enemies block each other.
-        if (this.cells[target_cellNum].containsEnemy()) {
-            return false;
-        }
-        return true;
-    }
-
-    checkIfWon() {
-        // The game is won if Wappo AND all active friends are on a beehive.
-        // This logic mirrors GameLogic.js to ensure consistency.
-        if (!this.cells[this.wappo.getLocation()].isBeeHive()) {
-            return false;
-        }
-        // Filter out empty slots in the sparse array before checking.
-        for (const friend of this.friends.filter(f => f)) {
-            if (!this.cells[friend.getLocation()].isBeeHive()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Determines the best direction for a diagonal enemy for the current turn,
-     * based on a prioritized search for an open path. This replicates the
-     * original game's `direction_diaBee` logic.
-     * @param {Enemy} enemy The diagonal enemy.
-     * @returns {string} The chosen direction for the turn.
-     */
-    determineDiagonalEnemyDirection(enemy) {
-        const priorities = {
-            [Enum.DIRECTION.NORTH_EAST]: [Enum.DIRECTION.NORTH_EAST, Enum.DIRECTION.SOUTH_EAST, Enum.DIRECTION.NORTH_WEST, Enum.DIRECTION.SOUTH_WEST],
-            [Enum.DIRECTION.SOUTH_EAST]: [Enum.DIRECTION.SOUTH_EAST, Enum.DIRECTION.NORTH_EAST, Enum.DIRECTION.SOUTH_WEST, Enum.DIRECTION.NORTH_WEST],
-            [Enum.DIRECTION.NORTH_WEST]: [Enum.DIRECTION.NORTH_WEST, Enum.DIRECTION.NORTH_EAST, Enum.DIRECTION.SOUTH_WEST, Enum.DIRECTION.SOUTH_EAST],
-            [Enum.DIRECTION.SOUTH_WEST]: [Enum.DIRECTION.SOUTH_WEST, Enum.DIRECTION.SOUTH_EAST, Enum.DIRECTION.NORTH_WEST, Enum.DIRECTION.NORTH_EAST]
-        };
-
-        const currentDirection = enemy.getDirection();
-        const searchOrder = priorities[currentDirection];
-
-        if (searchOrder) {
-            for (const nextDir of searchOrder) {
-                const targetXY = this.getTargetCell(enemy, nextDir);
-                // The original logic only checks for grid boundaries (walls), not other pieces.
-                if (this.getStaticCellType(targetXY) !== Cell.STATIC_CELL_TYPE.WALL) {
-                    return nextDir; // Found the first valid direction.
-                }
-            }
-        }
-
-        // Fallback, though one direction should always be valid unless completely boxed in.
-        return currentDirection;
-    }
-
     /**
      * Updates the visual orientation (flipX, flipY) of an enemy's sprite
-     * to match its current direction. This provides a robust, state-independent
-     * way to orient the sprites.
-     * @param {Enemy} enemy - The enemy whose image needs updating.
+     * to match its current direction.
      */
-    updateEnemyImageDirection(enemy) {
+    updateEnemyImageDirection(enemy, forcedDir) {
         const img = enemy.getImg();
         if (!img) return;
 
-        // Reset flips to a default state before applying new ones.
         img.flipX = false;
         img.flipY = false;
 
-        const dir = enemy.getDirection();
+        const dir = forcedDir || enemy.getDirection();
         const axis = enemy.getAxis();
-
-        // This logic depends on the default orientation of the base sprite images.
-        // Assumed default orientations:
-        // H-axis: faces EAST
-        // V-axis: faces NORTH
-        // D-axis: faces NORTH_WEST
 
         if (axis === 'H') {
             if (dir === Enum.DIRECTION.WEST) {
@@ -642,35 +270,31 @@ class SceneMain extends Phaser.Scene {
                     img.flipX = true;
                     img.flipY = true;
                     break;
-                // case Enum.DIRECTION.NORTH_WEST:
-                // (default, no flip needed)
-                //    break;
             }
         }
     }
 
-    // --- Scene Lifecycle Callbacks ---
-    // This method is called when the scene is shut down (e.g., stopped or restarted).
-    // It's crucial for cleaning up GameObjects and preventing memory leaks/ghost events.
+    fireChangeLevel(delta) {
+        if (this.isAnimating) return;
+        
+        let newLevel = this.choosenLevel + delta;
+        if (newLevel >= 0 && newLevel <= 200) {
+            this.scene.start('SceneMain', { "choosenLevel": newLevel });
+        } else {
+            console.log(`Level ${newLevel} is out of bounds (0-200).`);
+        }
+    }
+
     onSceneShutdown() {
         console.log("SceneMain shutdown initiated.");
-        // Explicitly disable interactivity and destroy buttons from the old scene instance
         this.uiButtons.forEach(button => {
-            if (button && button.active) { // Check if button still exists and is active
-                button.disableButtonInteractive(); // Ensure listeners are off
-                button.destroy(); // Destroy the GameObject
+            if (button && button.active) {
+                button.disableButtonInteractive();
+                button.destroy();
             }
         });
-        this.uiButtons = []; // Clear the array
-        // Clear other references to aid garbage collection
-        this.cells = [];
-        this.friends = [];
-        this.enemies = [];
-        this.wappo = null;
-        this.level = null;
-        this.text_moves = null;
+        this.uiButtons = [];
 
-        // Also clean up keyboard listeners to prevent ghost inputs on scene restart
         if (this.cursors) {
             this.cursors.up.off('down');
             this.cursors.down.off('down');
@@ -678,104 +302,31 @@ class SceneMain extends Phaser.Scene {
             this.cursors.right.off('down');
         }
         this.cursors = null;
+        
+        // Clear refs but don't destroy game objects owned by GameLogic
+        this.wappo = null;
+        this.friends = [];
+        this.enemies = [];
+        this.game = null;
+        this.level = null;
+        this.text_moves = null;
     }
 
-    updateGameStatus(died, won) { // This function is now called AFTER all animations for a turn
+    updateGameStatus(died, won) {
         if (died) {
             console.log("GAME OVER");
             this.scene.pause();
-            this.scene.launch("SceneGameover", {"status": "DIED", "choosenLevel": this.choosenLevel, "moves": this.moves_counter});
-            
+            this.scene.launch("SceneGameover", {"status": "DIED", "choosenLevel": this.choosenLevel, "moves": this.game.moves_counter});
         } else if (won) {
             console.log("GAME WON");
             this.scene.pause();
-            this.scene.launch("SceneGameover", {"status": "WON", "choosenLevel": this.choosenLevel, "moves": this.moves_counter});
-        }
-    }
-
-    heroIsDead(obj_from, cell_to) {
-        // Check collision with enemies and traps -> die
-        if (obj_from instanceof Hero && (cell_to.containsEnemy() || cell_to.isTrap()) || obj_from instanceof Enemy && cell_to.containsHero()) {
-            return true; // Death occurred
-        } else {
-            return false;
-        }
-    }
-
-    canMoveHero(heroObj, target_cellXY) {
-        var target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
-        var dest_cell_type = this.getStaticCellType(target_cellXY);
-        if (dest_cell_type == Cell.STATIC_CELL_TYPE.WALL || dest_cell_type == Cell.STATIC_CELL_TYPE.GAP) {
-            return false;
-        } else { // is VINE or BEEHIVE
-            // Check if cell is already occupied by another Hero
-            if (this.cells[target_cellNum].containsHero()) {
-                return false;
-            } else {
-                return true;
-            }
+            this.scene.launch("SceneGameover", {"status": "WON", "choosenLevel": this.choosenLevel, "moves": this.game.moves_counter});
         }
     }
 
     updateMovesCounter() {
-        this.text_moves.setText('Moves: ' + this.moves_counter + "/" + this.level.getBasescore());
+        this.text_moves.setText('Moves: ' + this.game.moves_counter + "/" + this.level.getBasescore());
     }
-
-    // Get the static cell type at XY
-    getStaticCellType(cellXY) {
-        var cell_type;
-        // If out of boundaries -> it's a wall
-        if (cellXY.x < 0 || cellXY.x > 5 || cellXY.y < 0 || cellXY.y > 5) {
-            cell_type = Cell.STATIC_CELL_TYPE.WALL;
-        } else {
-            let cell = this.cells[getCellnum(cellXY.x, cellXY.y)]
-            cell_type = cell.getType();
-        }
-        return cell_type;
-    }
-
-    getTargetCell(obj, dir) {
-        var move_x = 0;
-        var move_y = 0;
-        switch (dir) {
-            case Enum.DIRECTION.NORTH:
-                move_y = -1;
-                break;
-            case Enum.DIRECTION.SOUTH:
-                move_y = 1;
-                break;
-            case Enum.DIRECTION.WEST:
-                move_x = -1;
-                break;
-            case Enum.DIRECTION.EAST:
-                move_x = 1;
-                break;
-            case Enum.DIRECTION.NORTH_WEST:
-                move_y = -1;
-                move_x = -1;
-                break;
-            case Enum.DIRECTION.NORTH_EAST:
-                move_y = -1;
-                move_x = 1;
-                break;
-            case Enum.DIRECTION.SOUTH_WEST:
-                move_y = 1;
-                move_x = -1;
-                break;
-            case Enum.DIRECTION.SOUTH_EAST:
-                move_y = 1;
-                move_x = 1;
-                break;
-        }
-        var obj_coords = obj.getLocationXY();
-        console.log(obj_coords);
-        return {
-            x: obj_coords.x + move_x,
-            y: obj_coords.y + move_y
-        };
-    }
-
-    // UI and navigation
 
     fireGoHome() {
         var dialog = CreateDialog(this);
@@ -794,21 +345,18 @@ class SceneMain extends Phaser.Scene {
     goHome(data) {
         console.log(data);
         if (data.text == 'Yes') {
-            this.scene.start('SceneHome'); // Let Phaser handle shutting down this scene.
+            this.scene.start('SceneHome');
         }
     }
 
     runSolver() {
         console.log("Attempting to solve level " + this.level.getId() + "...");
-        // Disable all UI buttons to prevent interaction while the solver is running.
-        this.uiButtons.forEach(button => button.disableButtonInteractive()); // Use new method
+        this.uiButtons.forEach(button => button.disableButtonInteractive());
 
-        // Use the solver algorithm
         const solution = Solver.solve(this.level, { algorithm: 'PureBacktracking' });
         console.log("Solver finished.");
         console.log(solution);
 
-        // Re-enable the buttons once the solver is done.
-        this.uiButtons.forEach(button => button.enableButtonInteractive()); // Use new method
+        this.uiButtons.forEach(button => button.enableButtonInteractive());
     }
 }

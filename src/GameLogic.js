@@ -5,6 +5,13 @@
  * It knows the rules and can simulate moves without any graphics.
  */
 class GameLogic {
+    level;
+    cells = [];
+    friends = [];
+    enemies = [];
+    wappo;
+    moves_counter = 0;
+    lastTurnMoves = []; // Array of move sets to be animated
 
     constructor(level) {
         this.level = level;
@@ -19,6 +26,7 @@ class GameLogic {
         this.friends = [];
         this.enemies = [];
         this.moves_counter = 0;
+        this.lastTurnMoves = [];
 
         // Create and fill cells array with static objects
         this.level.getBeehives().forEach(element => { this.cells[element] = new Cell(element, Cell.STATIC_CELL_TYPE.BEEHIVE); });
@@ -52,12 +60,22 @@ class GameLogic {
      */
     simulateTurn(direction) {
         this.moves_counter++;
+        this.lastTurnMoves = []; // Clear moves from previous turn
 
         // --- Wappo's Move ---
         // The game checks for a loss/win condition after every single piece moves.
         // The simulation must replicate this behavior.
-        if (this.movePiece(this.wappo, direction)) {
+        const wappoMove = this.movePiece(this.wappo, direction);
+        if (wappoMove.died) {
+            // Add the fatal move to the animation queue
+            if (wappoMove.move) {
+                this.lastTurnMoves.push([wappoMove.move]);
+            }
             return { isWon: false, isLost: true }; // Wappo died
+        }
+        // Add Wappo's move to the first set of animations if it happened
+        if (wappoMove.move) {
+            this.lastTurnMoves.push([wappoMove.move]);
         }
 
         // --- Friends' Moves ---
@@ -71,17 +89,28 @@ class GameLogic {
             friendMovedInTick = false;
             friendTicks++;
 
+            const friendMoves = [];
             for (const friend of this.friends.filter(f => f)) {
                 if (friend && !friend.finishedMoving()) {
                     const originalLocation = friend.getLocation();
-                    const isLost = this.movePiece(friend, direction);
-                    if (isLost) {
+                    const result = this.movePiece(friend, direction);
+                    if (result.died) {
+                        if (result.move) {
+                            this.lastTurnMoves.push([result.move]);
+                        }
                         return { isWon: false, isLost: true }; // A friend died
                     }
                     if (friend.getLocation() !== originalLocation) {
                         friendMovedInTick = true;
                     }
+                    if (result.move) {
+                        friendMoves.push(result.move);
+                    }
                 }
+            }
+            // Add all friend moves for this tick as a parallel animation set
+            if (friendMoves.length > 0) {
+                this.lastTurnMoves.push(friendMoves);
             }
         }
 
@@ -109,35 +138,49 @@ class GameLogic {
         const maxSteps = sortedEnemies.length > 0 ? Math.max(...sortedEnemies.map(e => e.getStep())) : 0;
 
         for (let stepRound = 1; stepRound <= maxSteps; stepRound++) {
-            // This is one "tour de pas"
-            // It uses a "tick" loop to resolve collisions for that specific step.
             let movedInTick = true;
             let ticks = 0;
-
+            let enemyMovesMap = new Map(); // Utiliser une Map pour stocker le dernier état de chaque ennemi
+            
             while (movedInTick && ticks < MAX_TICKS) {
                 movedInTick = false;
                 ticks++;
-
                 for (const enemy of sortedEnemies) {
-                    // An enemy moves in this round if its total steps is >= current round
-                    // and it has not yet used its move for this round.
                     if (enemy.getStep() >= stepRound && enemy.getMovesCounter() < stepRound) {
                         const originalLocation = enemy.getLocation();
                         let directionToMove = enemy.getDirection();
-
                         if (enemy.getAxis() === 'D') {
                             directionToMove = this.determineDiagonalEnemyDirection(enemy);
                             enemy.setDirection(directionToMove);
                         }
-                        const isLost = this.movePiece(enemy, directionToMove);
-                        if (isLost) {
+                        const result = this.movePiece(enemy, directionToMove);
+                        if (result.died) {
+                            if (result.move) {
+                                this.lastTurnMoves.push([result.move]);
+                            }
                             return { isWon: false, isLost: true };
                         }
                         if (enemy.getLocation() !== originalLocation) {
                             movedInTick = true;
                         }
+                        
+                        // Stocker le dernier état de cet ennemi (écrase les états précédents)
+                        if (result.move) {
+                            enemyMovesMap.set(enemy, result.move);
+                        } else {
+                            // Si l'ennemi ne bouge pas ET n'a pas encore de move enregistré, on ajoute le blocage
+                            if (!enemyMovesMap.has(enemy)) {
+                                enemyMovesMap.set(enemy, { piece: enemy, isBlocked: true, dir: enemy.getDirection() });
+                            }
+                        }
                     }
                 }
+            }
+
+            // Animer tous les moves de ce stepRound ensemble (seulement l'état final de chaque ennemi)
+            const allMovesForStepRound = Array.from(enemyMovesMap.values());
+            if (allMovesForStepRound.length > 0) {
+                this.lastTurnMoves.push(allMovesForStepRound);
             }
 
             // After all ticks for this step round, any enemy that was supposed to move but couldn't
@@ -166,54 +209,57 @@ class GameLogic {
         const isEnemy = piece instanceof Enemy;
 
         let target_cellXY = this.getTargetCell(piece, dir);
+        let originalDirection = isEnemy ? piece.getDirection() : null;
+        let directionBeforeMove = isEnemy ? piece.getDirection() : null;
 
         // UNIFIED Enemy wall collision logic.
         if (isEnemy && this.getStaticCellType(target_cellXY) === Cell.STATIC_CELL_TYPE.WALL) {
             if (piece.getAxis() === 'D') {
-                // Diagonal enemies find a new priority direction.
                 const newDirection = this.determineDiagonalEnemyDirection(piece);
                 piece.setDirection(newDirection);
             } else {
-                // Horizontal and Vertical enemies simply turn around.
                 piece.turnAround();
             }
-            target_cellXY = this.getTargetCell(piece, piece.getDirection()); // Recalculate target with the new direction.
+            target_cellXY = this.getTargetCell(piece, piece.getDirection());
+            directionBeforeMove = piece.getDirection(); // direction vient d'être changée
         }
 
         const canMove = isEnemy ? this.canMoveEnemy(target_cellXY) : this.canMoveHero(target_cellXY);
 
-        // --- Perform Move ---
+        let moveDesc = null;
         if (canMove) {
-            piece.incrementMoves(); // All pieces consume a move when successful.
-
+            // directionBeforeMove est la direction effective pour le flip
+            moveDesc = { piece, toXY: target_cellXY, isBlocked: false };
+            if (isEnemy) moveDesc.dir = directionBeforeMove;
+            piece.incrementMoves();
             const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
             const dest_cell = this.cells[target_cellNum];
-
             if (this.isFatalMove(piece, dest_cell)) {
-                return true; // Death occurred
+                return { died: true, move: moveDesc };
             }
-
             this.cells[piece.getLocation()].removePiece();
             piece.setLocation(target_cellNum);
             dest_cell.setMovableObj(piece);
-        } else { // Blocked
-            // According to the original logic, only Wappo and Enemies
-            // consume their move when blocked. Friends wait for the path to clear.
-            // A friend who is blocked does nothing, allowing it to try again on the next tick.
+        } else {
             if (isEnemy) {
-                // An enemy blocked by another enemy does NOT consume a move. It waits for the next tick.
                 const dest_cell = this.cells[getCellnum(target_cellXY.x, target_cellXY.y)];
                 if (!dest_cell || !dest_cell.containsEnemy()) {
-                    // Blocked by wall or hero, consume move immediately.
                     piece.incrementMoves();
                 }
-            } else if (!isFriend) { // Wappo is blocked
-                // Wappo always consumes a move when blocked.
+            } else if (!isFriend) {
                 piece.incrementMoves();
             }
+            // directionBeforeMove est la direction effective pour le flip
+            if (!isFriend || (isEnemy && (!dest_cell || !dest_cell.containsEnemy()))) {
+                moveDesc = { piece, isBlocked: true };
+                if (isEnemy) moveDesc.dir = directionBeforeMove;
+            }
         }
-
-        return false; // Move was successful and not fatal.
+        // Si la direction a changé mais pas de move, on force un flip
+        if (isEnemy && originalDirection !== piece.getDirection() && !moveDesc) {
+            moveDesc = { piece, isBlocked: true, dir: piece.getDirection() };
+        }
+        return { died: false, move: moveDesc };
     }
 
     canMoveHero(target_cellXY) {
