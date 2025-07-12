@@ -94,21 +94,26 @@ class SceneMain extends Phaser.Scene {
         this.add.existing(button_next);
         this.uiButtons.push(button_next);
 
-        // Draw static grid
+        // Tooltip setup
+        this.tooltip = this.add.text(0, 0, '', { font: '16px Arial', fill: '#fff', backgroundColor: '#222', padding: { x: 8, y: 4 } })
+            .setDepth(1000).setVisible(false);
+
+        // Draw static grid with interactive tooltips
         for (let i = 0; i < 36; i++) {
             let coords = getCoords(i);
             let x = coords.x * CELL_SIZE;
             let y = coords.y * CELL_SIZE;
             let cell = this.game.cells[i];
-            if (cell.isBeeHive()) {
-                this.add.image(x, y, 'beehive').setOrigin(0,0);
-            } else if (cell.isGap()) {
-                this.add.image(x, y, 'gap').setOrigin(0,0);
-            } else if (cell.isTrap()) {
-                this.add.image(x, y, 'trap').setOrigin(0,0);
-            } else {
-                this.add.image(x, y, 'vine').setOrigin(0,0);
-            }
+            let imgKey = cell.isBeeHive() ? 'beehive' : cell.isGap() ? 'gap' : cell.isTrap() ? 'trap' : 'vine';
+            let img = this.add.image(x, y, imgKey).setOrigin(0,0).setInteractive();
+            img.on('pointerover', pointer => {
+                let props = `Cell #${i}\nType: ${cell.getType()}`;
+                if (cell.getMovableObj()) {
+                    props += `\nContains: ${cell.getMovableObj().constructor.name}`;
+                }
+                this.tooltip.setText(props).setPosition(pointer.worldX + 10, pointer.worldY + 10).setVisible(true);
+            });
+            img.on('pointerout', () => this.tooltip.setVisible(false));
         }
 
         // Draw movable pieces and link them to their GameLogic counterparts
@@ -117,8 +122,12 @@ class SceneMain extends Phaser.Scene {
         let coords = getCoords(this.wappo.getLocation());
         let x = coords.x * CELL_SIZE;
         let y = coords.y * CELL_SIZE;
-        var img_wappo = this.add.image(x, y, 'wappo');
-        img_wappo.setOrigin(0,0);
+        var img_wappo = this.add.image(x, y, 'wappo').setOrigin(0,0).setInteractive();
+        img_wappo.on('pointerover', pointer => {
+            let props = `Wappo\nStep: ${this.wappo.getStep()}\nOrder: ${this.wappo.getOrder ? this.wappo.getOrder() : 0}\nLocation: ${this.wappo.getLocation()}`;
+            this.tooltip.setText(props).setPosition(pointer.worldX + 10, pointer.worldY + 10).setVisible(true);
+        });
+        img_wappo.on('pointerout', () => this.tooltip.setVisible(false));
         this.wappo.setImg(img_wappo);
 
         // Link Friends
@@ -128,8 +137,12 @@ class SceneMain extends Phaser.Scene {
             let coords = getCoords(friend.getLocation());
             let x = coords.x * CELL_SIZE;
             let y = coords.y * CELL_SIZE;
-            var img_friend = this.add.image(x, y, 'friend_' + friend.getStep());
-            img_friend.setOrigin(0,0);
+            var img_friend = this.add.image(x, y, 'friend_' + friend.getStep()).setOrigin(0,0).setInteractive();
+            img_friend.on('pointerover', pointer => {
+                let props = `Friend\nStep: ${friend.getStep()}\nOrder: ${friend.getOrder()}\nLocation: ${friend.getLocation()}`;
+                this.tooltip.setText(props).setPosition(pointer.worldX + 10, pointer.worldY + 10).setVisible(true);
+            });
+            img_friend.on('pointerout', () => this.tooltip.setVisible(false));
             friend.setImg(img_friend);
         }); 
             
@@ -140,8 +153,12 @@ class SceneMain extends Phaser.Scene {
             let coords = getCoords(enemy.getLocation());
             let x = coords.x * CELL_SIZE;
             let y = coords.y * CELL_SIZE;
-            var img_enemy = this.add.image(x, y, 'enemy_' + enemy.getAxis() + "_" + enemy.getStep());
-            img_enemy.setOrigin(0,0);
+            var img_enemy = this.add.image(x, y, 'enemy_' + enemy.getAxis() + "_" + enemy.getStep()).setOrigin(0,0).setInteractive();
+            img_enemy.on('pointerover', pointer => {
+                let props = `Enemy\nAxis: ${enemy.getAxis()}\nDirection: ${enemy.getDirection()}\nStep: ${enemy.getStep()}\nOrder: ${enemy.getOrder()}\nLocation: ${enemy.getLocation()}`;
+                this.tooltip.setText(props).setPosition(pointer.worldX + 10, pointer.worldY + 10).setVisible(true);
+            });
+            img_enemy.on('pointerout', () => this.tooltip.setVisible(false));
             enemy.setImg(img_enemy);
             this.updateEnemyImageDirection(enemy);
         }); 
