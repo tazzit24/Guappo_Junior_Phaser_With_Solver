@@ -78,39 +78,53 @@ class GameLogic {
             this.lastTurnMoves.push([wappoMove.move]);
         }
 
-        // --- Friends' Moves ---
-        // The movement phase is a series of "ticks". The loop continues as long as
-        // at least one piece moved in the previous tick.
-        let friendMovedInTick = true;
-        let friendTicks = 0;
+        // --- Friends' Moves (nouvelle logique alignée sur les ennemis) ---
+        // On calcule le maxStep des amis
+        const sortedFriends = this.friends.filter(f => f);
+        const maxFriendSteps = sortedFriends.length > 0 ? Math.max(...sortedFriends.map(f => f.getStep())) : 0;
         const MAX_TICKS = 6; // Safety break to prevent infinite loops, as in the original game.
 
-        while (friendMovedInTick && friendTicks < MAX_TICKS) {
-            friendMovedInTick = false;
-            friendTicks++;
+        for (let stepRound = 1; stepRound <= maxFriendSteps; stepRound++) {
+            let movedInTick = true;
+            let ticks = 0;
+            let friendMovesMap = new Map();
 
-            const friendMoves = [];
-            for (const friend of this.friends.filter(f => f)) {
-                if (friend && !friend.finishedMoving()) {
-                    const originalLocation = friend.getLocation();
-                    const result = this.movePiece(friend, direction);
-                    if (result.died) {
-                        if (result.move) {
-                            this.lastTurnMoves.push([result.move]);
+            while (movedInTick && ticks < MAX_TICKS) {
+                movedInTick = false;
+                ticks++;
+                for (const friend of sortedFriends) {
+                    if (friend.getStep() >= stepRound && friend.getMovesCounter() < stepRound) {
+                        const originalLocation = friend.getLocation();
+                        const result = this.movePiece(friend, direction);
+                        if (result.died) {
+                            if (result.move) {
+                                this.lastTurnMoves.push([result.move]);
+                            }
+                            return { isWon: false, isLost: true }; // A friend died
                         }
-                        return { isWon: false, isLost: true }; // A friend died
-                    }
-                    if (friend.getLocation() !== originalLocation) {
-                        friendMovedInTick = true;
-                    }
-                    if (result.move) {
-                        friendMoves.push(result.move);
+                        if (friend.getLocation() !== originalLocation) {
+                            movedInTick = true;
+                        }
+                        if (result.move) {
+                            friendMovesMap.set(friend, result.move);
+                        } else {
+                            if (!friendMovesMap.has(friend)) {
+                                friendMovesMap.set(friend, { piece: friend, isBlocked: true });
+                            }
+                        }
                     }
                 }
             }
-            // Add all friend moves for this tick as a parallel animation set
-            if (friendMoves.length > 0) {
-                this.lastTurnMoves.push(friendMoves);
+            // Animation parallèle pour ce stepRound (état final de chaque ami)
+            const allMovesForStepRound = Array.from(friendMovesMap.values());
+            if (allMovesForStepRound.length > 0) {
+                this.lastTurnMoves.push(allMovesForStepRound);
+            }
+            // Après tous les ticks de ce stepRound, on incrémente movesCounter des amis qui n'ont pas pu bouger
+            for (const friend of sortedFriends) {
+                if (friend.getStep() >= stepRound && friend.getMovesCounter() < stepRound) {
+                    friend.incrementMoves();
+                }
             }
         }
 
