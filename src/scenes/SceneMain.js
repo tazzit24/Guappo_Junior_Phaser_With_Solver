@@ -24,20 +24,20 @@ class SceneMain extends Phaser.Scene {
     }
 
     preload() {
-        this.load.text('levels', 'assets/levels.json');
-        this.load.image('vine', 'assets/vine.png');
-        this.load.image('gap', 'assets/gap.png');
-        this.load.image('trap', 'assets/trap.png');
-        this.load.image('beehive', 'assets/beehive.png');
-        this.load.image('wappo', 'assets/wappo.png');
-        this.load.image('friend_1', 'assets/friend1.png');
-        this.load.image('friend_2', 'assets/friend2.png');
-        this.load.image('enemy_V_1', 'assets/ev1.png');
-        this.load.image('enemy_V_2', 'assets/ev2.png');
-        this.load.image('enemy_H_1', 'assets/eh1.png');
-        this.load.image('enemy_H_2', 'assets/eh2.png');
-        this.load.image('enemy_D_1', 'assets/ed1.png');
-        this.load.image('enemy_D_2', 'assets/ed2.png');
+        this.load.text('levels', 'assets/levels/levels.json');
+        this.load.image('vine', 'assets/images/vine.png');
+        this.load.image('gap', 'assets/images/gap.png');
+        this.load.image('trap', 'assets/images/trap.png');
+        this.load.image('beehive', 'assets/images/beehive.png');
+        this.load.image('wappo', 'assets/images/wappo.png');
+        this.load.image('friend_1', 'assets/images/friend1.png');
+        this.load.image('friend_2', 'assets/images/friend2.png');
+        this.load.image('enemy_V_1', 'assets/images/ev1.png');
+        this.load.image('enemy_V_2', 'assets/images/ev2.png');
+        this.load.image('enemy_H_1', 'assets/images/eh1.png');
+        this.load.image('enemy_H_2', 'assets/images/eh2.png');
+        this.load.image('enemy_D_1', 'assets/images/ed1.png');
+        this.load.image('enemy_D_2', 'assets/images/ed2.png');
         this.load.scenePlugin({
             key: 'rexuiplugin',
             url: 'lib/rexuiplugin.min.js',

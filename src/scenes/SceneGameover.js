@@ -15,8 +15,8 @@ class SceneGameover extends Phaser.Scene {
     }
 
     preload() {
-        this.load.image('gameover', 'assets/gameover.png');
-        this.load.image('gamewon', 'assets/gamewon.png');
+        this.load.image('gameover', 'assets/images/gameover.png');
+        this.load.image('gamewon', 'assets/images/gamewon.png');
     }
 
     create() {
