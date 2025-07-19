@@ -6,13 +6,6 @@
  */
 
 class GameLogic {
-    /**
-     * Enregistre le score dans localStorage pour le niveau donné.
-     * Met à jour bestscore/datebest et lastscore/datelast.
-     */
-    saveScore(levelId, score) {
-        SaveGameHelper.saveScore(levelId, score);
-    }
     level;
     cells = [];
     friends = [];
@@ -24,6 +17,14 @@ class GameLogic {
     constructor(level) {
         this.level = level;
         this.reset();
+    }
+
+     /*
+     * Enregistre le score dans localStorage pour le niveau donné.
+     * Met à jour bestscore/datebest et lastscore/datelast.
+     */
+    saveScore(levelId, score) {
+        SaveGameHelper.saveScore(levelId, score);
     }
 
     /**
