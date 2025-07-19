@@ -49,5 +49,3 @@ class SaveGameHelper {
         return scoresObj.levels[String(levelId)] || null;
     }
 }
-
-window.SaveGameHelper = SaveGameHelper;

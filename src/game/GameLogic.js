@@ -11,7 +11,7 @@ class GameLogic {
      * Met à jour bestscore/datebest et lastscore/datelast.
      */
     saveScore(levelId, score) {
-        window.SaveGameHelper.saveScore(levelId, score);
+        SaveGameHelper.saveScore(levelId, score);
     }
     level;
     cells = [];
