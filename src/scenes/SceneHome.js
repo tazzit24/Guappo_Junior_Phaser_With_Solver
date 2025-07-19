@@ -15,14 +15,11 @@ class SceneHome extends Phaser.Scene {
     }
 
     create() {
-        this.cameras.main.setBackgroundColor('#000000'); // Keeping the black background as requested.
-        
-        // The logo is left exactly as it was in your code.
+        this.cameras.main.setBackgroundColor('#000000');
+
         var logo = this.add.image(0, 0, 'logo').setOrigin(0,0);
         logo.scale = 0.75;
 
-        // --- Centered Level Selection ---
-        // Only the form elements are centered for a cleaner layout.
         const { width, height } = this.sys.game.config;
         const centerX = width / 2;
         const formY = 350;
@@ -35,16 +32,28 @@ class SceneHome extends Phaser.Scene {
             strokeThickness: 4
         }).setOrigin(0.5);
 
+
+        // Lecture des ids min/max depuis levels.json
+        const levelsJson = JSON.parse(this.cache.text.get('levels'));
+        const levelIds = levelsJson.levels.map(lvl => Number(lvl.level)).filter(n => !isNaN(n));
+        const minLevelId = Math.min(...levelIds);
+        const maxLevelId = Math.max(...levelIds);
+
+        // Pré-sélectionne le plus haut niveau sauvegardé, ou minLevelId si aucune sauvegarde ou hors bornes
+        let highestSavedLevel = SaveGameHelper.getHighestLevel();
+        if (!highestSavedLevel || isNaN(highestSavedLevel) || highestSavedLevel < minLevelId || highestSavedLevel > maxLevelId) {
+            highestSavedLevel = minLevelId;
+        }
+
         this.inputText = this.add.rexInputText(centerX - 60, formY, 120, 40, {
             type: 'number',
-            text: '1',
+            text: String(highestSavedLevel),
             fontSize: '24px',
             color: '#000000',
             backgroundColor: '#FFFFFF',
             align: 'center'
         }).setOrigin(0.5);
 
-        // Add key listener for the Enter key as a convenience
         this.input.keyboard.on('keydown-ENTER', () => {
             this.launchLevel();
         });

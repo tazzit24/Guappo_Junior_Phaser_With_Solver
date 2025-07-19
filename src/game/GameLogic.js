@@ -4,7 +4,15 @@
  * This class represents a "headless" version of the game.
  * It knows the rules and can simulate moves without any graphics.
  */
+
 class GameLogic {
+    /**
+     * Enregistre le score dans localStorage pour le niveau donné.
+     * Met à jour bestscore/datebest et lastscore/datelast.
+     */
+    saveScore(levelId, score) {
+        window.SaveGameHelper.saveScore(levelId, score);
+    }
     level;
     cells = [];
     friends = [];
@@ -132,6 +140,10 @@ class GameLogic {
         // The win condition is checked here, after friends move but before enemies move,
         // which is consistent with the original game's state machine.
         if (this.checkIfWon()) {
+            // --- SCORE LOGIC ---
+            let basescore = this.level.basescore || 0;
+            let calculatedScore = basescore - (this.moves_counter - basescore);
+            this.saveScore(this.level.id, calculatedScore);
             return { isWon: true, isLost: false };
         }
 

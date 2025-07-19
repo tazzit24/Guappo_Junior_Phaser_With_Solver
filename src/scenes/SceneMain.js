@@ -179,7 +179,7 @@ class SceneMain extends Phaser.Scene {
         this.cursors.right.on('down', () => this.fireUserInput(Enum.DIRECTION.EAST));
 
         // TODO : Remove for production
-        this.runSolver();
+        //this.runSolver();
     }
 
     async fireUserInput(dir) {
