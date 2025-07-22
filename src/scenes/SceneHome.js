@@ -1,6 +1,6 @@
 class SceneHome extends Phaser.Scene {
 
-    inputText;
+    levelSlider;
     uiButtons = [];
 
     constructor() {
@@ -12,6 +12,7 @@ class SceneHome extends Phaser.Scene {
         this.load.plugin('rexinputtextplugin', 'lib/rexinputtextplugin.min.js', true);
         this.load.text('levels', 'assets/levels/levels.json');
         this.load.image('logo', 'assets/images/Guappo_Junior_logo.png');
+        this.load.image('wappo', 'assets/images/wappo.png'); // Bear head for slider bullet
     }
 
     create() {
@@ -23,16 +24,7 @@ class SceneHome extends Phaser.Scene {
         const { width, height } = this.sys.game.config;
         const centerX = width / 2;
         const formY = 350;
-
-        this.add.text(centerX - 180, formY, 'Level', {
-            fontSize: '32px',
-            fontFamily: '"Arial Black", Gadget, sans-serif',
-            color: '#FFFFFF',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(0.5);
-
-
+ 
         // Lecture des ids min/max depuis levels.json
         const levelsJson = JSON.parse(this.cache.text.get('levels'));
         const levelIds = levelsJson.levels.map(lvl => Number(lvl.level)).filter(n => !isNaN(n));
@@ -45,24 +37,20 @@ class SceneHome extends Phaser.Scene {
             highestSavedLevel = minLevelId;
         }
 
-        this.inputText = this.add.rexInputText(centerX - 60, formY, 120, 40, {
-            type: 'number',
-            text: String(highestSavedLevel),
-            fontSize: '24px',
-            color: '#000000',
-            backgroundColor: '#FFFFFF',
-            align: 'center'
-        }).setOrigin(0.5);
+        // Create custom space-themed slider - taking almost full width
+        const sliderWidth = width * 0.85; // 85% of canvas width
+        this.levelSlider = new SpaceSlider(this, centerX, formY, sliderWidth, minLevelId, maxLevelId, highestSavedLevel);
 
         this.input.keyboard.on('keydown-ENTER', () => {
             this.launchLevel();
         });
 
-        var button_go = new Button(this, centerX + 60, formY, 'GO', {color: '#FFFFFF'} , () => this.launchLevel());
+        var button_go = new Button(this, centerX, formY + 100, 'Continue', {color: '#FFFFFF'} , () => this.launchLevel());
+        button_go.setOrigin(0.5);
         this.add.existing(button_go);
         this.uiButtons.push(button_go);
 
-        var button_solve_all = new Button(this, centerX + 180, formY, 'SOLVE ALL', {color: '#FFFFFF'} , () => this.runBatchSolver());
+        var button_solve_all = new Button(this, centerX + 180, formY+280, 'SOLVE ALL', {color: '#FFFFFF'} , () => this.runBatchSolver());
         this.add.existing(button_solve_all);
         this.uiButtons.push(button_solve_all);
 
@@ -80,11 +68,18 @@ class SceneHome extends Phaser.Scene {
             }
         });
         this.uiButtons = [];
+        
+        // Clean up slider
+        if (this.levelSlider) {
+            this.levelSlider.destroy();
+            this.levelSlider = null;
+        }
+        
         this.input.keyboard.off('keydown-ENTER');
     }
 
     launchLevel() {
-        const choosenLevel = parseInt(this.inputText.text, 10); // Using parseInt for robustness
+        const choosenLevel = this.levelSlider.getValue(); // Using slider value
         var scene_main = this.scene.get('SceneMain');
         if (scene_main == null) {
             this.scene.add('SceneMain', SceneMain);
