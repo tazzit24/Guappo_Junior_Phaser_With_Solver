@@ -36,10 +36,11 @@ class SceneHome extends Phaser.Scene {
         if (!highestSavedLevel || isNaN(highestSavedLevel) || highestSavedLevel < minLevelId || highestSavedLevel > maxLevelId) {
             highestSavedLevel = minLevelId;
         }
+        let preselectLevel = highestSavedLevel < maxLevelId ? highestSavedLevel + 1 : highestSavedLevel;
 
         // Create custom space-themed slider - taking almost full width
         const sliderWidth = width * 0.85; // 85% of canvas width
-        this.levelSlider = new SpaceSlider(this, centerX, formY, sliderWidth, minLevelId, maxLevelId, highestSavedLevel);
+        this.levelSlider = new SpaceSlider(this, centerX, formY, sliderWidth, minLevelId, maxLevelId, preselectLevel);
 
         this.input.keyboard.on('keydown-ENTER', () => {
             this.launchLevel();
