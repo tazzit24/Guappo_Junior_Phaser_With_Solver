@@ -180,6 +180,32 @@ class SceneMain extends Phaser.Scene {
 
         // TODO : Remove for production
         //this.runSolver();
+
+        // Détection du swipe tactile pour mobile
+        this.input.on('pointerdown', pointer => {
+            this._touchStart = { x: pointer.x, y: pointer.y };
+        });
+        this.input.on('pointerup', pointer => {
+            if (!this._touchStart) return;
+            const dx = pointer.x - this._touchStart.x;
+            const dy = pointer.y - this._touchStart.y;
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+            // Seuil minimal pour considérer un swipe
+            const threshold = 50;
+            if (absDx < threshold && absDy < threshold) {
+                this._touchStart = null;
+                return;
+            }
+            let dir = null;
+            if (absDx > absDy) {
+                dir = dx > 0 ? Enum.DIRECTION.EAST : Enum.DIRECTION.WEST;
+            } else {
+                dir = dy > 0 ? Enum.DIRECTION.SOUTH : Enum.DIRECTION.NORTH;
+            }
+            this.fireUserInput(dir);
+            this._touchStart = null;
+        });
     }
 
     async fireUserInput(dir) {
