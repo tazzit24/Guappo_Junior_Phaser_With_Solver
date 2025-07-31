@@ -46,7 +46,11 @@ class SceneHome extends Phaser.Scene {
             handleTexture: 'wappo',
             textPrefix: 'Level: ',
             sliderHeight: 30,
-            handleSize: 50
+            handleSize: 50,
+            showProgress: true, // Show colored progress fill
+            progressColor: 0x4a90e2, // Solid blue for progress
+            progressAlpha: 0.3, // 20% transparent for a softer look
+            trackColor: 0x1a1a2e // Solid dark for track
         };
         // Or use more detailed config for customization:
         /*

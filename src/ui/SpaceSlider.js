@@ -14,7 +14,7 @@
  *   - handleTint: number - Normal tint color for handle (default: 0xffddaa)
  *   - handleActiveTint: number - Active tint color for handle (default: 0xffcc88)
  *   - sliderHeight: number - Height of the track (default: 20)
- *   - trackColor: object - {start, end} gradient colors (default: {start: 0x1a1a2e, end: 0x16213e})
+ *   - trackColor: number - Solid color for the track (default: 0x1a1a2e)
  *   - glowColor: number - Color of the glow effect (default: 0x4a90e2)
  *   - glowAlpha: number - Alpha of the glow effect (default: 0.6)
  *   - textOffset: number - Y offset for text from slider (default: -50)
@@ -26,6 +26,9 @@
  *   - auraColor: number - Color of the aura (default: 0x4a90e2)
  *   - auraAlpha: number - Alpha of the aura (default: 0.2)
  *   - borderRadius: number - Border radius for rounded corners (default: 4)
+ *   - showProgress: boolean - Whether to show progress fill (default: true)
+ *   - progressColor: number - Solid color for progress fill (default: 0x4a90e2)
+ *   - progressAlpha: number - Alpha transparency for progress fill (default: 1.0)
  */
 class SpaceSlider {
     constructor(scene, x, y, width, minValue, maxValue, initialValue, config = {}) {
@@ -44,7 +47,7 @@ class SpaceSlider {
             handleTint: config.handleTint || 0xffddaa,
             handleActiveTint: config.handleActiveTint || 0xffcc88,
             sliderHeight: config.sliderHeight || 20,
-            trackColor: config.trackColor || { start: 0x1a1a2e, end: 0x16213e },
+            trackColor: config.trackColor || 0x1a1a2e, // Solid color only
             glowColor: config.glowColor || 0x4a90e2,
             glowAlpha: config.glowAlpha || 0.6,
             textOffset: config.textOffset || -50,
@@ -61,7 +64,10 @@ class SpaceSlider {
             showAura: config.showAura !== false, // Default true
             auraColor: config.auraColor || 0x4a90e2,
             auraAlpha: config.auraAlpha || 0.2,
-            borderRadius: config.borderRadius || 4
+            borderRadius: config.borderRadius || 4,
+            showProgress: config.showProgress !== false, // Default true
+            progressColor: config.progressColor || 0x4a90e2, // Solid color only
+            progressAlpha: config.progressAlpha || 1.0 // Fully opaque by default
         };
         
         this.isDragging = false;
@@ -72,15 +78,9 @@ class SpaceSlider {
     }
     
     create() {
-        // Create space-themed track with gradient effect
+        // Create space-themed track with solid color
         this.components.track = this.scene.add.graphics();
-        this.components.track.fillGradientStyle(
-            this.config.trackColor.start, 
-            this.config.trackColor.start, 
-            this.config.trackColor.end, 
-            this.config.trackColor.end, 
-            1
-        );
+        this.components.track.fillStyle(this.config.trackColor, 1);
         this.components.track.fillRoundedRect(
             this.x - this.width/2, 
             this.y - this.config.sliderHeight/2, 
@@ -98,6 +98,13 @@ class SpaceSlider {
             this.config.sliderHeight, 
             this.config.borderRadius
         );
+        this.components.track.setDepth(0); // Base layer
+        
+        // Create progress fill (colored background on the left part) - AFTER track, BEFORE handle
+        if (this.config.showProgress) {
+            this.components.progressFill = this.scene.add.graphics();
+            this.components.progressFill.setDepth(1); // Above track, below handle
+        }
         
         // Add star decorations along the track (optional)
         if (this.config.showStars) {
@@ -114,12 +121,14 @@ class SpaceSlider {
         this.components.handle = this.scene.add.image(0, this.y, this.config.handleTexture);
         this.components.handle.setScale(this.config.handleSize / Math.max(this.components.handle.width, this.components.handle.height));
         this.components.handle.setTint(this.config.handleTint);
+        this.components.handle.setDepth(3); // Above everything else
         
         // Add aura around the handle (optional)
         if (this.config.showAura) {
             this.components.aura = this.scene.add.graphics();
             this.components.aura.fillStyle(this.config.auraColor, this.config.auraAlpha);
             this.components.aura.fillCircle(0, this.y, this.config.handleSize * 0.8);
+            this.components.aura.setDepth(2); // Below handle, above progress
         }
         
         // Create display text
@@ -129,9 +138,15 @@ class SpaceSlider {
             `${this.config.textPrefix}${this.value}`, 
             this.config.textStyle
         ).setOrigin(0.5);
+        this.components.text.setDepth(4); // On top of everything
         
         // Set initial position
         this.updatePosition();
+        
+        // Draw initial progress fill
+        if (this.config.showProgress) {
+            this.updateProgressFill();
+        }
         
         // Setup interactivity
         this.setupInteractivity();
@@ -207,6 +222,50 @@ class SpaceSlider {
         if (this.components.aura) {
             this.components.aura.x = position;
         }
+        this.updateProgressFill();
+    }
+    
+    updateProgressFill() {
+        console.log('updateProgressFill called', {
+            showProgress: this.config.showProgress,
+            hasProgressFill: !!this.components.progressFill,
+            value: this.value,
+            minValue: this.minValue,
+            maxValue: this.maxValue
+        });
+        
+        if (!this.config.showProgress || !this.components.progressFill) {
+            console.log('Progress fill skipped - config or component missing');
+            return;
+        }
+        
+        // Clear previous progress fill
+        this.components.progressFill.clear();
+        
+        // Calculate progress width based on current value
+        const ratio = (this.value - this.minValue) / (this.maxValue - this.minValue);
+        let progressWidth = this.width * ratio;
+        
+        console.log(`Progress calculation: ratio=${ratio}, progressWidth=${progressWidth}, totalWidth=${this.width}`);
+        
+        // Ensure some progress is visible even at minimum value + small amount
+        if (this.value > this.minValue && progressWidth < 5) {
+            progressWidth = 5; // Minimum visible width
+        }
+        
+        if (progressWidth > 0) {
+            // Use solid color for better visibility
+            this.components.progressFill.fillStyle(this.config.progressColor, this.config.progressAlpha);
+            this.components.progressFill.fillRoundedRect(
+                this.x - this.width/2,
+                this.y - this.config.sliderHeight/2,
+                progressWidth,
+                this.config.sliderHeight,
+                this.config.borderRadius
+            );
+            
+            console.log(`Progress fill drawn: width=${progressWidth}, ratio=${ratio}, value=${this.value}`);
+        }
     }
     
     updateText() {
@@ -234,6 +293,9 @@ class SpaceSlider {
         }
         if (this.components.track) {
             this.components.track.destroy();
+        }
+        if (this.components.progressFill) {
+            this.components.progressFill.destroy();
         }
         if (this.components.aura) {
             this.components.aura.destroy();
