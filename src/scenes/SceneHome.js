@@ -31,10 +31,10 @@ class SceneHome extends Phaser.Scene {
         const minLevelId = Math.min(...levelIds);
         const maxLevelId = Math.max(...levelIds);
 
-        // Pré-sélectionne le plus haut niveau sauvegardé, ou minLevelId si aucune sauvegarde ou hors bornes
-        let highestSavedLevel = SaveGameHelper.getHighestLevel();
+        // Pré-sélectionne le plus haut niveau sauvegardé
+        let highestSavedLevel = SaveGameHelper.getHighestSavedLevel();
         if (!highestSavedLevel || isNaN(highestSavedLevel) || highestSavedLevel < minLevelId || highestSavedLevel > maxLevelId) {
-            highestSavedLevel = minLevelId;
+            highestSavedLevel = 0;
         }
         let preselectLevel = highestSavedLevel < maxLevelId ? highestSavedLevel + 1 : highestSavedLevel;
 

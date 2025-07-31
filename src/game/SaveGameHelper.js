@@ -34,11 +34,11 @@ class SaveGameHelper {
         localStorage.setItem('scores', JSON.stringify(scoresObj));
     }
 
-    static getHighestLevel() {
+    static getHighestSavedLevel() {
         const scoresObj = SaveGameHelper.getScoresObj();
-        if (!scoresObj.levels) return 1;
+        if (!scoresObj.levels) return null;
         const keys = Object.keys(scoresObj.levels);
-        if (keys.length === 0) return 1;
+        if (keys.length === 0) return null;
         // Return the highest numeric key
         return Math.max(...keys.map(k => parseInt(k, 10)).filter(n => !isNaN(n)));
     }
