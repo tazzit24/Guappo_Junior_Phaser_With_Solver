@@ -1,5 +1,34 @@
+/**
+ * SpaceSlider - A configurable space-themed slider component for Phaser 3
+ * 
+ * @param {Phaser.Scene} scene - The Phaser scene
+ * @param {number} x - X position
+ * @param {number} y - Y position  
+ * @param {number} width - Width of the slider
+ * @param {number} minValue - Minimum value
+ * @param {number} maxValue - Maximum value
+ * @param {number} initialValue - Initial value
+ * @param {Object} config - Configuration object with the following optional properties:
+ *   - handleTexture: string - Texture key for the handle (default: 'wappo')
+ *   - handleSize: number - Size of the handle (default: 40)
+ *   - handleTint: number - Normal tint color for handle (default: 0xffddaa)
+ *   - handleActiveTint: number - Active tint color for handle (default: 0xffcc88)
+ *   - sliderHeight: number - Height of the track (default: 20)
+ *   - trackColor: object - {start, end} gradient colors (default: {start: 0x1a1a2e, end: 0x16213e})
+ *   - glowColor: number - Color of the glow effect (default: 0x4a90e2)
+ *   - glowAlpha: number - Alpha of the glow effect (default: 0.6)
+ *   - textOffset: number - Y offset for text from slider (default: -50)
+ *   - textPrefix: string - Prefix for the display text (default: 'Level: ')
+ *   - textStyle: object - Phaser text style object
+ *   - showStars: boolean - Whether to show star decorations (default: true)
+ *   - starCount: number - Number of stars to show (default: 5)
+ *   - showAura: boolean - Whether to show aura around handle (default: true)
+ *   - auraColor: number - Color of the aura (default: 0x4a90e2)
+ *   - auraAlpha: number - Alpha of the aura (default: 0.2)
+ *   - borderRadius: number - Border radius for rounded corners (default: 4)
+ */
 class SpaceSlider {
-    constructor(scene, x, y, width, minValue, maxValue, initialValue, bearTexture = 'wappo') {
+    constructor(scene, x, y, width, minValue, maxValue, initialValue, config = {}) {
         this.scene = scene;
         this.x = x;
         this.y = y;
@@ -7,12 +36,35 @@ class SpaceSlider {
         this.minValue = minValue;
         this.maxValue = maxValue;
         this.value = initialValue;
-        this.bearTexture = bearTexture;
         
-        this.sliderHeight = 20;
-        this.handleSize = 40;
+        // Configuration with defaults
+        this.config = {
+            handleTexture: config.handleTexture || 'wappo',
+            handleSize: config.handleSize || 40,
+            handleTint: config.handleTint || 0xffddaa,
+            handleActiveTint: config.handleActiveTint || 0xffcc88,
+            sliderHeight: config.sliderHeight || 20,
+            trackColor: config.trackColor || { start: 0x1a1a2e, end: 0x16213e },
+            glowColor: config.glowColor || 0x4a90e2,
+            glowAlpha: config.glowAlpha || 0.6,
+            textOffset: config.textOffset || -50,
+            textPrefix: config.textPrefix || 'Level: ',
+            textStyle: config.textStyle || {
+                fontSize: '20px',
+                fontFamily: '"Arial Black", Gadget, sans-serif',
+                color: '#4a90e2',
+                stroke: '#000000',
+                strokeThickness: 2
+            },
+            showStars: config.showStars !== false, // Default true
+            starCount: config.starCount || 5,
+            showAura: config.showAura !== false, // Default true
+            auraColor: config.auraColor || 0x4a90e2,
+            auraAlpha: config.auraAlpha || 0.2,
+            borderRadius: config.borderRadius || 4
+        };
+        
         this.isDragging = false;
-        
         this.components = {};
         this.onValueChange = null;
         
@@ -22,52 +74,61 @@ class SpaceSlider {
     create() {
         // Create space-themed track with gradient effect
         this.components.track = this.scene.add.graphics();
-        this.components.track.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x16213e, 0x16213e, 1);
+        this.components.track.fillGradientStyle(
+            this.config.trackColor.start, 
+            this.config.trackColor.start, 
+            this.config.trackColor.end, 
+            this.config.trackColor.end, 
+            1
+        );
         this.components.track.fillRoundedRect(
             this.x - this.width/2, 
-            this.y - this.sliderHeight/2, 
+            this.y - this.config.sliderHeight/2, 
             this.width, 
-            this.sliderHeight, 
-            4
+            this.config.sliderHeight, 
+            this.config.borderRadius
         );
         
         // Add cosmic glow effect
-        this.components.track.lineStyle(2, 0x4a90e2, 0.6);
+        this.components.track.lineStyle(2, this.config.glowColor, this.config.glowAlpha);
         this.components.track.strokeRoundedRect(
             this.x - this.width/2, 
-            this.y - this.sliderHeight/2, 
+            this.y - this.config.sliderHeight/2, 
             this.width, 
-            this.sliderHeight, 
-            4
+            this.config.sliderHeight, 
+            this.config.borderRadius
         );
         
-        // Add star decorations along the track
-        this.components.stars = [];
-        for (let i = 0; i < 5; i++) {
-            const starX = this.x - this.width/2 + (this.width * i / 4);
-            const starY = this.y;
-            const star = this.createStar(starX, starY, 3, 0xffffff, 0.3);
-            this.components.stars.push(star);
+        // Add star decorations along the track (optional)
+        if (this.config.showStars) {
+            this.components.stars = [];
+            for (let i = 0; i < this.config.starCount; i++) {
+                const starX = this.x - this.width/2 + (this.width * i / (this.config.starCount - 1));
+                const starY = this.y;
+                const star = this.createStar(starX, starY, 3, 0xffffff, 0.3);
+                this.components.stars.push(star);
+            }
         }
         
-        // Create the bear head handle (mafioso bear)
-        this.components.handle = this.scene.add.image(0, this.y, this.bearTexture);
-        this.components.handle.setScale(this.handleSize / Math.max(this.components.handle.width, this.components.handle.height));
-        this.components.handle.setTint(0xffddaa); // Give it a slight golden tint for mafioso feel
+        // Create the handle (configurable texture)
+        this.components.handle = this.scene.add.image(0, this.y, this.config.handleTexture);
+        this.components.handle.setScale(this.config.handleSize / Math.max(this.components.handle.width, this.components.handle.height));
+        this.components.handle.setTint(this.config.handleTint);
         
-        // Add a cosmic aura around the bear
-        this.components.aura = this.scene.add.graphics();
-        this.components.aura.fillStyle(0x4a90e2, 0.2);
-        this.components.aura.fillCircle(0, this.y, this.handleSize * 0.8);
+        // Add aura around the handle (optional)
+        if (this.config.showAura) {
+            this.components.aura = this.scene.add.graphics();
+            this.components.aura.fillStyle(this.config.auraColor, this.config.auraAlpha);
+            this.components.aura.fillCircle(0, this.y, this.config.handleSize * 0.8);
+        }
         
-        // Create level display text
-        this.components.text = this.scene.add.text(this.x, this.y - 50, `Level: ${this.value}`, {
-            fontSize: '20px',
-            fontFamily: '"Arial Black", Gadget, sans-serif',
-            color: '#4a90e2',
-            stroke: '#000000',
-            strokeThickness: 2
-        }).setOrigin(0.5);
+        // Create display text
+        this.components.text = this.scene.add.text(
+            this.x, 
+            this.y + this.config.textOffset, 
+            `${this.config.textPrefix}${this.value}`, 
+            this.config.textStyle
+        ).setOrigin(0.5);
         
         // Set initial position
         this.updatePosition();
@@ -101,13 +162,13 @@ class SpaceSlider {
         
         this.components.handle.on('pointerdown', () => {
             this.isDragging = true;
-            this.components.handle.setTint(0xffcc88); // Slightly different tint when pressed
+            this.components.handle.setTint(this.config.handleActiveTint);
         });
         
         this.scene.input.on('pointerup', () => {
             if (this.isDragging) {
                 this.isDragging = false;
-                this.components.handle.setTint(0xffddaa); // Return to normal tint
+                this.components.handle.setTint(this.config.handleTint);
             }
         });
         
@@ -115,7 +176,9 @@ class SpaceSlider {
             if (this.isDragging) {
                 const newX = Phaser.Math.Clamp(pointer.x, this.x - this.width/2, this.x + this.width/2);
                 this.components.handle.x = newX;
-                this.components.aura.x = newX;
+                if (this.components.aura) {
+                    this.components.aura.x = newX;
+                }
                 
                 const newValue = this.positionToValue(newX);
                 this.setValue(Math.round(newValue));
@@ -141,11 +204,13 @@ class SpaceSlider {
     updatePosition() {
         const position = this.valueToPosition(this.value);
         this.components.handle.x = position;
-        this.components.aura.x = position;
+        if (this.components.aura) {
+            this.components.aura.x = position;
+        }
     }
     
     updateText() {
-        this.components.text.setText(`Level: ${this.value}`);
+        this.components.text.setText(`${this.config.textPrefix}${this.value}`);
     }
     
     valueToPosition(value) {

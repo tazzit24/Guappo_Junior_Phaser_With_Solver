@@ -40,7 +40,39 @@ class SceneHome extends Phaser.Scene {
 
         // Create custom space-themed slider - taking almost full width
         const sliderWidth = width * 0.85; // 85% of canvas width
-        this.levelSlider = new SpaceSlider(this, centerX, formY, sliderWidth, minLevelId, maxLevelId, preselectLevel);
+        
+        // You can use minimal config since most options have sensible defaults
+        const sliderConfig = {
+            handleTexture: 'wappo',
+            textPrefix: 'Level: ',
+            sliderHeight: 30,
+            handleSize: 50
+        };
+        // Or use more detailed config for customization:
+        /*
+        const sliderConfig = {
+            handleTexture: 'wappo',
+            handleSize: 40,
+            handleTint: 0xffddaa,
+            handleActiveTint: 0xffcc88,
+            sliderHeight: 20,
+            trackColor: { start: 0x1a1a2e, end: 0x16213e },
+            glowColor: 0x4a90e2,
+            textOffset: -50,
+            textPrefix: 'Level: ',
+            textStyle: {
+                fontSize: '20px',
+                fontFamily: '"Arial Black", Gadget, sans-serif',
+                color: '#4a90e2',
+                stroke: '#000000',
+                strokeThickness: 2
+            },
+            showStars: true,
+            starCount: 5,
+            showAura: true
+        };
+        */
+        this.levelSlider = new SpaceSlider(this, centerX, formY, sliderWidth, minLevelId, maxLevelId, preselectLevel, sliderConfig);
 
         this.input.keyboard.on('keydown-ENTER', () => {
             this.launchLevel();
