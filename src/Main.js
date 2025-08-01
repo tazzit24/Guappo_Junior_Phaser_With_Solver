@@ -25,13 +25,23 @@ if (isMobile == -1) {
 
 var config = {
     type: Phaser.AUTO,
-    width: 600,
-    height: 700,
     parent: 'phaser-game',
     scene: [SceneHome, SceneMain, SceneGameover],
     dom: {
         createContainer: true
-    }
+    },
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 600,
+        height: 700,
+        pixelArt: true
+    },
+    render: {
+        pixelArt: true,
+        antialias: false
+}
+
 };
 
 var game = new Phaser.Game(config);

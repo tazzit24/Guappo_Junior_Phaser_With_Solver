@@ -87,10 +87,6 @@ class SceneHome extends Phaser.Scene {
         this.add.existing(button_go);
         this.uiButtons.push(button_go);
 
-        var button_solve_all = new Button(this, centerX + 180, formY+280, 'SOLVE ALL', {color: '#FFFFFF'} , () => this.runBatchSolver());
-        this.add.existing(button_solve_all);
-        this.uiButtons.push(button_solve_all);
-
         // Register the shutdown handler to clean up when the scene is stopped or restarted.
         this.events.on('shutdown', this.onSceneShutdown, this);
     }
