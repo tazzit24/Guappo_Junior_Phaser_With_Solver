@@ -24,13 +24,16 @@ function getCellnum(x, y) {
 }
 
 function CreateDialog(scene) {
+    const { width, height } = scene.scale.gameSize;
+    const dialogScale = Math.min(width / 400, height / 300);
+    
     var dialog = scene.rexUI.add.dialog({
-        background: scene.rexUI.add.roundRectangle(0, 0, 100, 100, 20, 0xFFBF00),
+        background: scene.rexUI.add.roundRectangle(0, 0, 300 * dialogScale, 200 * dialogScale, 20, 0xFFBF00),
 
         title: scene.rexUI.add.label({
             background: scene.rexUI.add.roundRectangle(0, 0, 100, 40, 20, 0xF28C28),
             text: scene.add.text(0, 0, 'Confirm', {
-                fontSize: '24px',
+                fontSize: Math.max(18 * dialogScale, 16) + 'px',
                 color: '#000000'
             }),
             space: {
@@ -42,13 +45,13 @@ function CreateDialog(scene) {
         }),
 
         content: scene.add.text(0, 0, 'Exit Level ?', {
-            fontSize: '24px',
+            fontSize: Math.max(18 * dialogScale, 14) + 'px',
             color: '#000000'
         }),
 
         actions: [
-            CreateLabel(scene, 'Yes'),
-            CreateLabel(scene, 'No')
+            CreateLabel(scene, 'Yes', dialogScale),
+            CreateLabel(scene, 'No', dialogScale)
         ],
 
         space: {
@@ -80,7 +83,7 @@ function CreateDialog(scene) {
     return dialog;
 }
 
-function CreateLabel(scene, text) {
+function CreateLabel(scene, text, scale = 1) {
     return scene.rexUI.add.label({
         // width: 40,
         // height: 40,
@@ -88,7 +91,7 @@ function CreateLabel(scene, text) {
         background: scene.rexUI.add.roundRectangle(0, 0, 0, 0, 20, 0xDAA520),
 
         text: scene.add.text(0, 0, text, {
-            fontSize: '24px',
+            fontSize: Math.max(18 * scale, 14) + 'px',
             color: '#000000'
         }),
 

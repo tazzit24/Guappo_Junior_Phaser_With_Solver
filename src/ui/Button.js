@@ -1,13 +1,14 @@
 'use strict';
 
 class Button extends Phaser.GameObjects.Text {
+
     constructor(scene, x, y, text, style, callback) {
       super(scene, x, y, text, style);
-  
       this.callback = callback; // Store the callback
-
+      // Accept fontSize as string (e.g. '72px'), parseInt extracts the number
+      this.baseFontSize = style && style.fontSize ? parseInt(style.fontSize) : 54;
       this.enableButtonInteractive(); // Call a new method to set up listeners
-        this.setFontSize(15);
+      this.setFontSize(this.baseFontSize);
     }
   
     enableButtonInteractive() {
@@ -35,11 +36,11 @@ class Button extends Phaser.GameObjects.Text {
 
     enterButtonHoverState() {
       //this.setStyle({ fill: '#ff0'});
-      this.setFontSize(18);
+      this.setFontSize(this.baseFontSize + 3);
     }
   
     enterButtonRestState() {
-      this.setFontSize(15);
+      this.setFontSize(this.baseFontSize);
     }
   
     enterButtonActiveState() {

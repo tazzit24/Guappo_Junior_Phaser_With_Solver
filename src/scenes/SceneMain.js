@@ -1,19 +1,46 @@
 'use strict';
 
-const CELL_SIZE = 100; // Define cell size as a constant for this scene
-
 class SceneMain extends Phaser.Scene {
+
     level;
-    game; // Instance de GameLogic
+    game; // Instance of GameLogic
     text_moves;
+    text_level;
     wappo;
     friends = [];
     enemies = [];
-    uiButtons = [];
     cursors;
+    btnUp = null;
+    btnDown = null;
+    btnLeft = null;
+    btnRight = null;
+    btnHome = null;
+    btnMusic = null;
+    btnReload = null;
+    btnSolve = null;
+    btnPrev = null;
+    btnNext = null;
 
-    joystick_dir;
+    // UI Containers
+    controlsContainer = null; // Container for the control buttons
+    uiContainer = null; // Container for the UI elements
+    gridContainer = null; // Container for the grid and pieces
+
+    joystick_dir; // Joystick for directional input
     isAnimating = false; // Flag to prevent input during animation
+    musicEnabled = true; // Music state
+    
+    // Responsive layout properties
+    gridSize = 6;
+    gridOffsetX = 0;
+    gridOffsetY = 0;
+    cellSize = 0;
+    controlsAreaX = 0;
+    controlsAreaY = 0;
+    uiAreaX = 0;
+    uiAreaY = 0;
+    isLandscape = false;
+    gridCells = [];
 
     constructor() {
         super('SceneMain');
@@ -46,123 +73,501 @@ class SceneMain extends Phaser.Scene {
     }
 
     create() {
-        //this.cameras.main.setBackgroundColor('#000000');
+        // Calculate responsive layout
+        this.calculateLayout();
+        // Listen for resize events
+        this.scale.on('resize', this.handleResize, this);
 
         var levelsJson = JSON.parse(this.cache.text.get('levels'));
         var lvlJson = levelsJson.levels.find(record => record.level == this.choosenLevel);
-        console.log(lvlJson);
         this.level = new Level(lvlJson);
-        
         // Create GameLogic instance
         this.game = new GameLogic(this.level);
 
-        // Add level info
-        this.add.text(0, 630, 'Level: ' + this.level.getId());
-        this.text_moves = this.add.text(0, 660, '');
+        // Grid and pieces (needed for grid position)
+        this.createGrid();
+        this.createMovablePieces();
+
+        // Create UI container
+        this.uiContainer = this.add.container(0, 0);
+        // Create text objects with minimal initial config
+        this.text_level = this.add.text(0, 0, 'Level: ' + this.level.getId(), {
+            color: '#ffffff',
+            fontFamily: 'Arial',
+            stroke: '#000000',
+            strokeThickness: 2
+        });
+        this.uiContainer.add(this.text_level);
+        this.text_moves = this.add.text(0, 0, '', {
+            color: '#ffffff',
+            fontFamily: 'Arial',
+            stroke: '#000000',
+            strokeThickness: 2
+        });
+        this.uiContainer.add(this.text_moves);
+        this.updateMovesCounter();
+        this.tooltip = this.add.text(0, 0, '', {
+            font: '16px Arial',
+            fill: '#fff',
+            backgroundColor: '#222',
+            padding: { x: 8, y: 4 }
+        }).setDepth(1000).setVisible(false);
+        // Control buttons
+        this.createControlButtons();
+        // Input
+        this.setupInput();
+
+        // Initial layout update
+        this.updateLayout();
+    }
+
+    calculateLayout() {
+        const gameWidth = this.scale.gameSize.width;
+        const gameHeight = this.scale.gameSize.height;
+        this.isLandscape = gameWidth > gameHeight;
+        // Calculate cell size based on available space
+        const topPadding = 20;
+        const gridPadding = 10;
+        const uiHeaderSpace = this.isLandscape ? 0 : 60; // No header space in landscape
+        const controlsSpace = this.isLandscape ? gameWidth * 0.3 : gameHeight * 0.25; // More space for button rows in portrait
+        if (this.isLandscape) {
+            // Landscape: grid centered, UI on left, controls on right
+            const sideAreaWidth = Math.max(gameWidth * 0.18, 120); // Space for UI and controls
+            const availableGridWidth = gameWidth - sideAreaWidth * 2 - gridPadding * 2;
+            const availableGridHeight = gameHeight - gridPadding * 2;
+            this.cellSize = Math.min(availableGridWidth / this.gridSize, availableGridHeight / this.gridSize);
+            // Center grid horizontally
+            const gridTotalWidth = this.cellSize * this.gridSize;
+            this.gridOffsetX = (gameWidth - gridTotalWidth) / 2;
+            this.gridOffsetY = (gameHeight - (this.cellSize * this.gridSize)) / 2;
+            // UI area in landscape (left of grid)
+            this.uiAreaX = this.gridOffsetX - sideAreaWidth + 10; // 10px padding from left edge of UI area
+            this.uiAreaY = 20;
+            // Controls area in landscape (right of grid)
+            this.controlsAreaX = this.gridOffsetX + gridTotalWidth + sideAreaWidth / 2;
+            this.controlsAreaY = gameHeight / 2;
+        } else {
+            // Portrait: controls at the bottom, UI at top
+            const availableGridWidth = gameWidth - gridPadding * 2;
+            const availableGridHeight = gameHeight - controlsSpace - uiHeaderSpace - gridPadding * 2;
+            this.cellSize = Math.min(availableGridWidth / this.gridSize, availableGridHeight / this.gridSize);
+            this.gridOffsetX = (gameWidth - (this.cellSize * this.gridSize)) / 2;
+            this.gridOffsetY = uiHeaderSpace + topPadding;
+            this.controlsAreaX = gameWidth / 2;
+            this.controlsAreaY = this.gridOffsetY + (this.cellSize * this.gridSize) + topPadding * 4; // More space for two button rows
+            // UI area in portrait (top left)
+            this.uiAreaX = 10;
+            this.uiAreaY = 10;
+        }
+    }
+
+    handleResize() {
+        this.calculateLayout();
+        this.updateLayout();
+    }
+    
+    updateLayout() {
+        const { width, height } = this.scale.gameSize;
+        // Responsive font sizes
+        const levelFontSize = Math.max(Math.min(Math.round(height * 0.04), 32), 18);
+        const movesFontSize = levelFontSize;
+        const tooltipFontSize = Math.max(Math.min(Math.round(height * 0.025), 20), 14);
+        // Calculate margin_topInfos
+        const margin_topInfos = Math.max(Math.round(height * 0.015), 4); // Responsive margin, min 4px
+        // Set common label attributes
+        if (this.text_level) {
+            this.text_level.setFontSize(levelFontSize);
+            this.text_level.setStroke('#000000', Math.max(Math.round(levelFontSize * 0.1), 2));
+        }
+        if (this.text_moves) {
+            this.text_moves.setFontSize(movesFontSize);
+            this.text_moves.setStroke('#000000', Math.max(Math.round(movesFontSize * 0.1), 2));
+        }
+        // Set position, alignment, and origin based on orientation
+        if (!this.isLandscape) {
+            // Portrait mode: labels just above grid corners
+            if (this.text_level) {
+                const gridTopLeftX = this.gridOffsetX;
+                const gridTopLeftY = this.gridOffsetY - margin_topInfos;
+                this.text_level.setPosition(gridTopLeftX, gridTopLeftY);
+                this.text_level.setOrigin(0, 1);
+            }
+            if (this.text_moves) {
+                const gridTopRightX = this.gridOffsetX + this.cellSize * this.gridSize;
+                const gridTopLeftY = this.gridOffsetY - margin_topInfos;
+                this.text_moves.setPosition(gridTopRightX, gridTopLeftY);
+                this.text_moves.setOrigin(1, 1);
+                this.text_moves.setAlign('right');
+            }
+        } else {
+            // Landscape mode: labels positioned on the left of the grid
+            if (this.text_level) {
+                this.text_level.setPosition(this.uiAreaX, this.uiAreaY);
+                this.text_level.setOrigin(0, 0);
+            }
+            if (this.text_moves) {
+                this.text_moves.setPosition(this.uiAreaX, this.uiAreaY + levelFontSize + 5);
+                this.text_moves.setOrigin(0, 0);
+                this.text_moves.setAlign('left');
+            }
+        }
+        // Update tooltip
+        if (this.tooltip) {
+            this.tooltip.setFont(tooltipFontSize + 'px Arial');
+            this.tooltip.setPadding(Math.round(tooltipFontSize * 0.4), Math.round(tooltipFontSize * 0.2));
+        }
+        // Update grid container position
+        if (this.gridContainer) {
+            this.gridContainer.setPosition(this.gridOffsetX, this.gridOffsetY);
+        }
+        
+        // Update grid positions and sizes (relative to container)
+        for (let i = 0; i < 36; i++) {
+            if (this.gridCells && this.gridCells[i]) {
+                let coords = getCoords(i);
+                let x = coords.x * this.cellSize; // Relative to container
+                let y = coords.y * this.cellSize; // Relative to container
+                this.gridCells[i].setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
+            }
+        }
+        // Update movable pieces (relative to container)
+        if (this.wappo && this.wappo.getImg()) {
+            let coords = getCoords(this.wappo.getLocation());
+            let x = coords.x * this.cellSize; // Relative to container
+            let y = coords.y * this.cellSize; // Relative to container
+            this.wappo.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
+        }
+        this.friends.forEach(friend => {
+            if (friend && friend.getImg()) {
+                let coords = getCoords(friend.getLocation());
+                let x = coords.x * this.cellSize; // Relative to container
+                let y = coords.y * this.cellSize; // Relative to container
+                friend.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
+            }
+        });
+        this.enemies.forEach(enemy => {
+            if (enemy && enemy.getImg()) {
+                let coords = getCoords(enemy.getLocation());
+                let x = coords.x * this.cellSize; // Relative to container
+                let y = coords.y * this.cellSize; // Relative to container
+                enemy.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
+            }
+        });
+        // Update control buttons - just recreate the container with new positions
+        this.createControlButtons();
+    }
+
+    createUI() {
+        const { width, height } = this.scale.gameSize;
+        
+        // Responsive font sizes based on canvas size
+        const levelFontSize = Math.max(Math.min(Math.round(height * 0.04), 32), 18);
+        const movesFontSize = Math.max(Math.min(Math.round(height * 0.035), 28), 16);
+        const tooltipFontSize = Math.max(Math.min(Math.round(height * 0.025), 20), 14);
+        
+        // Add level info - responsive positioning and sizing
+        this.text_level = this.add.text(this.uiAreaX, this.uiAreaY, 'Level: ' + this.level.getId(), {
+            fontSize: levelFontSize + 'px',
+            color: '#ffffff',
+            fontFamily: 'Arial',
+            stroke: '#000000',
+            strokeThickness: Math.max(Math.round(levelFontSize * 0.1), 2)
+        });
+        
+        this.text_moves = this.add.text(this.uiAreaX, this.uiAreaY + levelFontSize + 5, '', {
+            fontSize: movesFontSize + 'px', 
+            color: '#ffffff',
+            fontFamily: 'Arial',
+            stroke: '#000000',
+            strokeThickness: Math.max(Math.round(movesFontSize * 0.1), 2)
+        });
         this.updateMovesCounter();
         
-        // Add gamepad buttons
-        var button_up = new Button(this, 310, 620, 'UP', {} , () => this.fireUserInput(Enum.DIRECTION.NORTH));
-        this.add.existing(button_up);
-        this.uiButtons.push(button_up);
-        var button_down = new Button(this, 300, 670, 'DOWN', {} , () => this.fireUserInput(Enum.DIRECTION.SOUTH));
-        this.add.existing(button_down);
-        this.uiButtons.push(button_down);
-        var button_left = new Button(this, 250, 650, 'LEFT', {} , () => this.fireUserInput(Enum.DIRECTION.WEST));
-        this.add.existing(button_left);
-        this.uiButtons.push(button_left);
-        var button_right = new Button(this, 350, 650, 'RIGHT', {} , () => this.fireUserInput(Enum.DIRECTION.EAST));
-        this.add.existing(button_right);
-        this.uiButtons.push(button_right);
-    
-        // Add Menu button
-        var button_go_home = new Button(this, 450, 650, 'HOME', {} , () => this.fireGoHome());
-        this.add.existing(button_go_home);
-        this.uiButtons.push(button_go_home);
+        this.createControlButtons();
+        
+        // Tooltip setup - responsive
+        this.tooltip = this.add.text(0, 0, '', { 
+            font: tooltipFontSize + 'px Arial', 
+            fill: '#fff', 
+            backgroundColor: '#222', 
+            padding: { x: Math.round(tooltipFontSize * 0.4), y: Math.round(tooltipFontSize * 0.2) } 
+        }).setDepth(1000).setVisible(false);
+    }
 
-        // Add a Solver button
-        var button_solve = new Button(this, 520, 650, 'SOLVE', {color: '#FFFFFF'} , () => this.runSolver());
-        this.add.existing(button_solve);
-        this.uiButtons.push(button_solve);
+    createControlButtons() {
+        // Destroy existing containers and buttons if present
+        if (this.controlsContainer) {
+            this.controlsContainer.destroy();
+            this.controlsContainer = null;
+        }
+        
+        // Clear button references
+        this.btnUp = null;
+        this.btnDown = null;
+        this.btnLeft = null;
+        this.btnRight = null;
+        this.btnHome = null;
+        this.btnMusic = null;
+        this.btnReload = null;
+        this.btnSolve = null;
+        this.btnPrev = null;
+        this.btnNext = null;
 
-        // Add Previous/Next Level buttons for debugging
-        var button_prev = new Button(this, 100, 645, 'PREV', {}, () => this.fireChangeLevel(-1));
-        this.add.existing(button_prev);
-        this.uiButtons.push(button_prev);
+        const { width, height } = this.scale.gameSize;
+        
+        // Create the main controls container
+        this.controlsContainer = this.add.container(0, 0);
+        
+        // Compact navigation buttons
+        const navBtnSize = Math.max(Math.min(this.cellSize * 0.5, 50), 30);
+        const navBtnSpacing = navBtnSize + 8;
+        
+        // Regular buttons (Home, Music)
+        const regularBtnSize = Math.max(Math.min(this.cellSize * 0.6, 60), 40);
 
-        var button_next = new Button(this, 180, 645, 'NEXT', {}, () => this.fireChangeLevel(1));
-        this.add.existing(button_next);
-        this.uiButtons.push(button_next);
+        // Responsive button font size
+        const navButtonFontSize = Math.max(Math.min(Math.round(height * 0.04), 40), 20);
+        const regularButtonFontSize = Math.max(Math.min(Math.round(height * 0.035), 35), 18);
+        
+        const navButtonStyle = {
+            fontSize: navButtonFontSize + 'px',
+            fontFamily: 'Arial',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: Math.max(Math.round(navButtonFontSize * 0.08), 2)
+        };
+        
+        const regularButtonStyle = {
+            fontSize: regularButtonFontSize + 'px',
+            fontFamily: 'Arial',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: Math.max(Math.round(regularButtonFontSize * 0.08), 2)
+        };
 
-        // Tooltip setup
-        this.tooltip = this.add.text(0, 0, '', { font: '16px Arial', fill: '#fff', backgroundColor: '#222', padding: { x: 8, y: 4 } })
-            .setDepth(1000).setVisible(false);
+        if (this.isLandscape) {
+            // Landscape layout - controls on right of grid
+            const sideAreaWidth = Math.max(width * 0.18, 120);
+            const gridRightX = this.gridOffsetX + (this.cellSize * this.gridSize);
+            const containerX = gridRightX + sideAreaWidth / 2;
+            const containerY = this.gridOffsetY + (this.cellSize * this.gridSize) / 2;
+            this.controlsContainer.setPosition(containerX, containerY);
+            // Compact navigation buttons arranged in cross pattern
+            this.btnUp = this.createButton(0, -navBtnSpacing * 1.5, '↑', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.NORTH));
+            this.btnLeft = this.createButton(-navBtnSpacing * 0.6, -navBtnSpacing * 0.5, '←', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.WEST));
+            this.btnRight = this.createButton(navBtnSpacing * 0.6, -navBtnSpacing * 0.5, '→', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.EAST));
+            this.btnDown = this.createButton(0, navBtnSpacing * 0.5, '↓', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.SOUTH));
+            // Home and Music buttons at grid boundaries
+            const gridTopY = this.gridOffsetY;
+            const gridBottomY = this.gridOffsetY + (this.cellSize * this.gridSize);
+            this.btnHome = this.createButton(0, gridTopY - containerY, 'HOME', regularButtonStyle, () => this.fireGoHome());
+            this.btnHome.setOrigin(0.5, 0);
+            // Reload button just below Home button
+            const reloadY = gridTopY - containerY + regularBtnSize + 10;
+            this.btnReload = this.createButton(0, reloadY, 'RELOAD', regularButtonStyle, () => this.reloadLevel());
+            this.btnReload.setOrigin(0.5, 0);
+            this.btnMusic = this.createButton(0, gridBottomY - containerY, this.musicEnabled ? 'MUSIC ON' : 'MUSIC OFF', regularButtonStyle, () => this.toggleMusic());
+            this.btnMusic.setOrigin(0.5, 1);
+            // Add all buttons to container
+            this.controlsContainer.add([
+                this.btnUp, this.btnLeft, this.btnRight, this.btnDown,
+                this.btnHome, this.btnReload, this.btnMusic
+            ]);
+            // Hidden buttons
+            this.btnSolve = this.createHiddenButton('SOLVE', () => this.runSolver());
+            this.btnPrev = this.createHiddenButton('PREV', () => this.fireChangeLevel(-1));
+            this.btnNext = this.createHiddenButton('NEXT', () => this.fireChangeLevel(1));
+        } else {
+            // Portrait layout - create bottom container for controls
+            const gridBottomY = this.gridOffsetY + (this.cellSize * this.gridSize);
+            const containerMargin = Math.max(this.cellSize * 0.6, 30);
+            const containerX = this.gridOffsetX + (this.cellSize * this.gridSize) / 2;
+            const containerY = gridBottomY + containerMargin;
+            
+            this.controlsContainer.setPosition(containerX, containerY);
 
+                 console.log('Container x/y:' + this.gridContainer.x + '/' + this.gridContainer.y);
+            console.log('Grid Continer width/Height:' +  this.gridContainer.width + '/' + this.gridContainer.height);
+            
+            // Navigation button cluster (centered in container)
+            const navClusterHeight = navBtnSpacing * 1.6;
+            const navClusterCenterY = navClusterHeight / 2;
+            
+            // Navigation buttons positioned relative to container center
+            this.btnUp = this.createButton(0, navClusterCenterY - navBtnSpacing * 0.8, '↑', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.NORTH));
+            this.btnLeft = this.createButton(-navBtnSpacing, navClusterCenterY, '←', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.WEST));
+            this.btnRight = this.createButton(navBtnSpacing, navClusterCenterY, '→', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.EAST));
+            this.btnDown = this.createButton(0, navClusterCenterY + navBtnSpacing * 0.8, '↓', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.SOUTH));
+            
+            // Home and Music buttons positioned at bottom of container
+            const bottomRowSpacing = Math.max(this.cellSize * 0.4, 25);
+            const bottomRowY = navClusterHeight + bottomRowSpacing;
+            
+            // Calculate positions relative to grid boundaries but ensure they stay within screen bounds
+            const gridLeftX = this.gridOffsetX;
+            const gridRightX = this.gridOffsetX + (this.cellSize * this.gridSize);
+            const containerCenterX = containerX; // Container center position
+            
+            // Calculate ideal positions aligned with grid edges
+            const idealHomeX = gridLeftX - containerCenterX; // Offset from container center to grid left
+            const idealMusicX = gridRightX - containerCenterX; // Offset from container center to grid right
+            
+            // Ensure buttons stay within screen bounds with some margin
+            const screenMargin = 20; // Minimum margin from screen edge
+            const maxLeftX = screenMargin - containerCenterX; // Leftmost position relative to container
+            const maxRightX = (width - screenMargin) - containerCenterX; // Rightmost position relative to container
+            
+            // Clamp positions to screen bounds
+            const homeX = Math.max(idealHomeX, maxLeftX);
+            const musicX = Math.min(idealMusicX, maxRightX);
+            // Reload button centered between Home and Music
+            const reloadX = (homeX + musicX) / 2;
+            this.btnHome = this.createButton(homeX, bottomRowY, 'HOME', regularButtonStyle, () => this.fireGoHome());
+            this.btnHome.setOrigin(0, 0.5);
+            this.btnReload = this.createButton(reloadX, bottomRowY, 'RELOAD', regularButtonStyle, () => this.reloadLevel());
+            this.btnReload.setOrigin(0.5, 0.5);
+            this.btnMusic = this.createButton(musicX, bottomRowY, this.musicEnabled ? 'MUSIC ON' : 'MUSIC OFF', regularButtonStyle, () => this.toggleMusic());
+            this.btnMusic.setOrigin(1, 0.5);
+
+            // Add all buttons to container
+            this.controlsContainer.add([
+                this.btnUp, this.btnLeft, this.btnRight, this.btnDown,
+                this.btnHome, this.btnReload, this.btnMusic
+            ]);
+            
+            // Hidden buttons
+            this.btnSolve = this.createHiddenButton('SOLVE', () => this.runSolver());
+            this.btnPrev = this.createHiddenButton('PREV', () => this.fireChangeLevel(-1));
+            this.btnNext = this.createHiddenButton('NEXT', () => this.fireChangeLevel(1));
+        }
+    }
+
+    createButton(x, y, text, style, callback) {
+        const button = new Button(this, x, y, text, style, callback);
+        button.setOrigin(0.5, 0.5); // Center the button text
+        // Don't add to scene directly - will be added to container
+        return button;
+    }
+
+    createHiddenButton(text, callback) {
+        // Create button but don't add to scene - just keep functionality
+        return {
+            text: text,
+            callback: callback,
+            active: true,
+            disableButtonInteractive: () => {},
+            enableButtonInteractive: () => {},
+            destroy: () => { this.active = false; }
+        };
+    }
+
+    createGrid() {
+        // Create grid container
+        if (this.gridContainer) {
+            this.gridContainer.destroy();
+        }
+        this.gridContainer = this.add.container(this.gridOffsetX, this.gridOffsetY);
+        
         // Draw static grid with interactive tooltips
+        this.gridCells = [];
         for (let i = 0; i < 36; i++) {
             let coords = getCoords(i);
-            let x = coords.x * CELL_SIZE;
-            let y = coords.y * CELL_SIZE;
+            let x = coords.x * this.cellSize; // Position relative to container
+            let y = coords.y * this.cellSize; // Position relative to container
             let cell = this.game.cells[i];
             let imgKey = cell.isBeeHive() ? 'beehive' : cell.isGap() ? 'gap' : cell.isTrap() ? 'trap' : 'vine';
-            let img = this.add.image(x, y, imgKey).setOrigin(0,0).setInteractive();
+            let img = this.add.image(x, y, imgKey);
+            img.setOrigin(0, 0);
+            img.setDisplaySize(this.cellSize, this.cellSize);
+            img.setInteractive();
+            
             img.on('pointerover', pointer => {
                 let props = `Cell #${i}\nType: ${cell.getType()}`;
                 if (cell.getMovableObj()) {
                     props += `\nContains: ${cell.getMovableObj().constructor.name}`;
                 }
-                this.tooltip.setText(props).setPosition(pointer.worldX + 10, pointer.worldY + 10).setVisible(true);
+                this.tooltip.setText(props);
+                this.tooltip.setPosition(pointer.worldX + 10, pointer.worldY + 10);
+                this.tooltip.setVisible(true);
             });
             img.on('pointerout', () => this.tooltip.setVisible(false));
+            
+            this.gridCells[i] = img;
+            this.gridContainer.add(img); // Add to container
         }
+    }
 
+    createMovablePieces() {
         // Draw movable pieces and link them to their GameLogic counterparts
         // Link Wappo
         this.wappo = this.game.wappo;
         let coords = getCoords(this.wappo.getLocation());
-        let x = coords.x * CELL_SIZE;
-        let y = coords.y * CELL_SIZE;
-        var img_wappo = this.add.image(x, y, 'wappo').setOrigin(0,0).setInteractive();
+        let x = coords.x * this.cellSize; // Position relative to grid container
+        let y = coords.y * this.cellSize; // Position relative to grid container
+        var img_wappo = this.add.image(x, y, 'wappo');
+        img_wappo.setOrigin(0, 0);
+        img_wappo.setDisplaySize(this.cellSize, this.cellSize);
+        img_wappo.setInteractive();
+        
         img_wappo.on('pointerover', pointer => {
             let props = `Wappo\nStep: ${this.wappo.getStep()}\nOrder: ${this.wappo.getOrder ? this.wappo.getOrder() : 0}\nLocation: ${this.wappo.getLocation()}`;
-            this.tooltip.setText(props).setPosition(pointer.worldX + 10, pointer.worldY + 10).setVisible(true);
+            this.tooltip.setText(props);
+            this.tooltip.setPosition(pointer.worldX + 10, pointer.worldY + 10);
+            this.tooltip.setVisible(true);
         });
         img_wappo.on('pointerout', () => this.tooltip.setVisible(false));
         this.wappo.setImg(img_wappo);
+        this.gridContainer.add(img_wappo); // Add to grid container
 
         // Link Friends
         this.friends = this.game.friends;
         this.friends.forEach(friend => {
             if (!friend) return;
-            let coords = getCoords(friend.getLocation());
-            let x = coords.x * CELL_SIZE;
-            let y = coords.y * CELL_SIZE;
-            var img_friend = this.add.image(x, y, 'friend_' + friend.getStep()).setOrigin(0,0).setInteractive();
+            let friendCoords = getCoords(friend.getLocation());
+            let friendX = friendCoords.x * this.cellSize; // Position relative to grid container
+            let friendY = friendCoords.y * this.cellSize; // Position relative to grid container
+            var img_friend = this.add.image(friendX, friendY, 'friend_' + friend.getStep());
+            img_friend.setOrigin(0, 0);
+            img_friend.setDisplaySize(this.cellSize, this.cellSize);
+            img_friend.setInteractive();
+            
             img_friend.on('pointerover', pointer => {
                 let props = `Friend\nStep: ${friend.getStep()}\nOrder: ${friend.getOrder()}\nLocation: ${friend.getLocation()}`;
-                this.tooltip.setText(props).setPosition(pointer.worldX + 10, pointer.worldY + 10).setVisible(true);
+            this.tooltip.setText(props);
+            this.tooltip.setPosition(pointer.worldX + 10, pointer.worldY + 10);
+            this.tooltip.setVisible(true);
             });
             img_friend.on('pointerout', () => this.tooltip.setVisible(false));
             friend.setImg(img_friend);
+            this.gridContainer.add(img_friend); // Add to grid container
         }); 
             
         // Link Enemies
         this.enemies = this.game.enemies;
         this.enemies.forEach(enemy => {
             if (!enemy) return;
-            let coords = getCoords(enemy.getLocation());
-            let x = coords.x * CELL_SIZE;
-            let y = coords.y * CELL_SIZE;
-            var img_enemy = this.add.image(x, y, 'enemy_' + enemy.getAxis() + "_" + enemy.getStep()).setOrigin(0,0).setInteractive();
+            let enemyCoords = getCoords(enemy.getLocation());
+            let enemyX = enemyCoords.x * this.cellSize; // Position relative to grid container
+            let enemyY = enemyCoords.y * this.cellSize; // Position relative to grid container
+            var img_enemy = this.add.image(enemyX, enemyY, 'enemy_' + enemy.getAxis() + "_" + enemy.getStep());
+            img_enemy.setOrigin(0, 0);
+            img_enemy.setDisplaySize(this.cellSize, this.cellSize);
+            img_enemy.setInteractive();
+            
             img_enemy.on('pointerover', pointer => {
                 let props = `Enemy\nAxis: ${enemy.getAxis()}\nDirection: ${enemy.getDirection()}\nStep: ${enemy.getStep()}\nOrder: ${enemy.getOrder()}\nLocation: ${enemy.getLocation()}`;
-                this.tooltip.setText(props).setPosition(pointer.worldX + 10, pointer.worldY + 10).setVisible(true);
+            this.tooltip.setText(props);
+            this.tooltip.setPosition(pointer.worldX + 10, pointer.worldY + 10);
+            this.tooltip.setVisible(true);
             });
             img_enemy.on('pointerout', () => this.tooltip.setVisible(false));
             enemy.setImg(img_enemy);
             this.updateEnemyImageDirection(enemy);
+            this.gridContainer.add(img_enemy); // Add to grid container
         }); 
-            
+    }
+
+    setupInput() {
         this.events.once('destroy', function () {
             console.log("SceneMain destroyed");
         }, this);
@@ -208,6 +613,68 @@ class SceneMain extends Phaser.Scene {
         });
     }
 
+    repositionElements() {
+        // Reposition grid container
+        if (this.gridContainer) {
+            this.gridContainer.setPosition(this.gridOffsetX, this.gridOffsetY);
+        }
+        
+        // Reposition grid elements (relative to container)
+        for (let i = 0; i < 36; i++) {
+            if (this.gridCells && this.gridCells[i]) {
+                let coords = getCoords(i);
+                let x = coords.x * this.cellSize; // Relative to container
+                let y = coords.y * this.cellSize; // Relative to container
+                this.gridCells[i].setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
+            }
+        }
+
+        // Reposition UI text elements with updated font sizes
+        const { width, height } = this.scale.gameSize;
+        const levelFontSize = Math.max(Math.min(Math.round(height * 0.04), 32), 18);
+        const movesFontSize = Math.max(Math.min(Math.round(height * 0.035), 28), 16);
+        
+        if (this.text_level) {
+            this.text_level.setPosition(this.uiAreaX, this.uiAreaY);
+            this.text_level.setFontSize(levelFontSize);
+            this.text_level.setStroke('#000000', Math.max(Math.round(levelFontSize * 0.1), 2));
+        }
+        if (this.text_moves) {
+            this.text_moves.setPosition(this.uiAreaX, this.uiAreaY + levelFontSize + 5);
+            this.text_moves.setFontSize(movesFontSize);
+            this.text_moves.setStroke('#000000', Math.max(Math.round(movesFontSize * 0.1), 2));
+        }
+
+        // Reposition movable pieces (relative to container)
+        if (this.wappo && this.wappo.getImg()) {
+            let coords = getCoords(this.wappo.getLocation());
+            let x = coords.x * this.cellSize; // Relative to container
+            let y = coords.y * this.cellSize; // Relative to container
+            this.wappo.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
+        }
+
+        this.friends.forEach(friend => {
+            if (friend && friend.getImg()) {
+                let coords = getCoords(friend.getLocation());
+                let x = coords.x * this.cellSize; // Relative to container
+                let y = coords.y * this.cellSize; // Relative to container
+                friend.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
+            }
+        });
+
+        this.enemies.forEach(enemy => {
+            if (enemy && enemy.getImg()) {
+                let coords = getCoords(enemy.getLocation());
+                let x = coords.x * this.cellSize; // Relative to container
+                let y = coords.y * this.cellSize; // Relative to container
+                enemy.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
+            }
+        });
+
+        // Recreate buttons with new positions
+        this.createControlButtons();
+    }
+
     async fireUserInput(dir) {
         if (this.isAnimating) {
             console.log("Animation in progress, ignoring input.");
@@ -215,7 +682,9 @@ class SceneMain extends Phaser.Scene {
         }
 
         this.isAnimating = true;
-        this.uiButtons.forEach(button => button.disableButtonInteractive());
+        [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
+            if (btn && btn.disableButtonInteractive) btn.disableButtonInteractive();
+        });
 
         const gameStatus = this.game.simulateTurn(dir);
         this.updateMovesCounter();
@@ -227,7 +696,9 @@ class SceneMain extends Phaser.Scene {
         this.updateGameStatus(gameStatus.isLost, gameStatus.isWon);
 
         // Re-enable input
-        this.uiButtons.forEach(button => button.enableButtonInteractive());
+        [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
+            if (btn && btn.enableButtonInteractive) btn.enableButtonInteractive();
+        });
         this.isAnimating = false;
     }
 
@@ -254,8 +725,8 @@ class SceneMain extends Phaser.Scene {
             this.tweens.add({
                 targets: obj.getImg(),
                 duration: 500,
-                x: target_cellXY.x * CELL_SIZE,
-                y: target_cellXY.y * CELL_SIZE,
+                x: target_cellXY.x * this.cellSize, // Relative to grid container
+                y: target_cellXY.y * this.cellSize, // Relative to grid container
                 ease: 'Power2',
                 onComplete: () => resolve()
             });
@@ -330,13 +801,32 @@ class SceneMain extends Phaser.Scene {
 
     onSceneShutdown() {
         console.log("SceneMain shutdown initiated.");
-        this.uiButtons.forEach(button => {
-            if (button && button.active) {
-                button.disableButtonInteractive();
-                button.destroy();
-            }
-        });
-        this.uiButtons = [];
+        
+        // Remove resize listener
+        this.scale.off('resize', this.handleResize, this);
+        
+        // Destroy containers which will destroy all contained elements
+        if (this.controlsContainer) {
+            this.controlsContainer.destroy();
+            this.controlsContainer = null;
+        }
+        
+        if (this.gridContainer) {
+            this.gridContainer.destroy();
+            this.gridContainer = null;
+        }
+        
+        // Clear button references
+        this.btnUp = null;
+        this.btnDown = null;
+        this.btnLeft = null;
+        this.btnRight = null;
+        this.btnHome = null;
+        this.btnMusic = null;
+        this.btnReload = null;
+        this.btnSolve = null;
+        this.btnPrev = null;
+        this.btnNext = null;
 
         if (this.cursors) {
             this.cursors.up.off('down');
@@ -353,6 +843,8 @@ class SceneMain extends Phaser.Scene {
         this.game = null;
         this.level = null;
         this.text_moves = null;
+        this.text_level = null;
+        this.gridCells = null;
     }
 
     updateGameStatus(died, won) {
@@ -371,18 +863,34 @@ class SceneMain extends Phaser.Scene {
         this.text_moves.setText('Moves: ' + this.game.moves_counter + "/" + this.level.getBasescore());
     }
 
-    fireGoHome() {
+    toggleMusic() {
+        this.musicEnabled = !this.musicEnabled;
+        console.log('Music toggled:', this.musicEnabled ? 'ON' : 'OFF');
+        
+        // Update button text
+        if (this.btnMusic) {
+            this.btnMusic.setText(this.musicEnabled ? 'MUSIC ON' : 'MUSIC OFF');
+        }
+        
+        // TODO: Implement actual music control logic here
+        // Example: this.sound.mute = !this.musicEnabled;
+    }
+
+    showConfirmDialog(callback) {
         var dialog = CreateDialog(this);
-        dialog.setPosition(300, 300);
+        dialog.setPosition(this.scale.gameSize.width / 2, this.scale.gameSize.height / 2);
         dialog.layout();
         dialog.modalPromise({
-                manualClose: true,
-                duration: {
-                    in: 500,
-                    out: 500
-                }
-            })
-        .then((data) => this.goHome(data));
+            manualClose: true,
+            duration: {
+                in: 500,
+                out: 500
+            }
+        }).then(callback);
+    }
+
+    fireGoHome() {
+        this.showConfirmDialog((data) => this.goHome(data));
     }
 
     goHome(data) {
@@ -394,12 +902,25 @@ class SceneMain extends Phaser.Scene {
 
     runSolver() {
         console.log("Attempting to solve level " + this.level.getId() + "...");
-        this.uiButtons.forEach(button => button.disableButtonInteractive());
+        [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
+            if (btn && btn.disableButtonInteractive) btn.disableButtonInteractive();
+        });
 
         const solution = Solver.solve(this.level, { algorithm: 'PureBacktracking' });
         console.log("Solver finished.");
         console.log(solution);
 
-        this.uiButtons.forEach(button => button.enableButtonInteractive());
+        [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
+            if (btn && btn.enableButtonInteractive) btn.enableButtonInteractive();
+        });
+    }
+
+    reloadLevel() {
+        if (this.isAnimating) return;
+        this.showConfirmDialog((data) => {
+            if (data.text == 'Yes') {
+                this.scene.restart({ "choosenLevel": this.choosenLevel });
+            }
+        });
     }
 }

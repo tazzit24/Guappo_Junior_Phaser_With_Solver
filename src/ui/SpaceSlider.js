@@ -80,57 +80,34 @@ class SpaceSlider {
     create() {
         // Create space-themed track with solid color
         this.components.track = this.scene.add.graphics();
-        this.components.track.fillStyle(this.config.trackColor, 1);
-        this.components.track.fillRoundedRect(
-            this.x - this.width/2, 
-            this.y - this.config.sliderHeight/2, 
-            this.width, 
-            this.config.sliderHeight, 
-            this.config.borderRadius
-        );
-        
-        // Add cosmic glow effect
-        this.components.track.lineStyle(2, this.config.glowColor, this.config.glowAlpha);
-        this.components.track.strokeRoundedRect(
-            this.x - this.width/2, 
-            this.y - this.config.sliderHeight/2, 
-            this.width, 
-            this.config.sliderHeight, 
-            this.config.borderRadius
-        );
+        this.drawTrack();
         this.components.track.setDepth(0); // Base layer
-        
+
         // Create progress fill (colored background on the left part) - AFTER track, BEFORE handle
         if (this.config.showProgress) {
             this.components.progressFill = this.scene.add.graphics();
             this.components.progressFill.setDepth(1); // Above track, below handle
         }
-        
+
         // Add star decorations along the track (optional)
         if (this.config.showStars) {
             this.components.stars = [];
-            for (let i = 0; i < this.config.starCount; i++) {
-                const starX = this.x - this.width/2 + (this.width * i / (this.config.starCount - 1));
-                const starY = this.y;
-                const star = this.createStar(starX, starY, 3, 0xffffff, 0.3);
-                this.components.stars.push(star);
-            }
+            this.drawStars();
         }
-        
+
         // Create the handle (configurable texture)
         this.components.handle = this.scene.add.image(0, this.y, this.config.handleTexture);
         this.components.handle.setScale(this.config.handleSize / Math.max(this.components.handle.width, this.components.handle.height));
         this.components.handle.setTint(this.config.handleTint);
         this.components.handle.setDepth(3); // Above everything else
-        
+
         // Add aura around the handle (optional)
         if (this.config.showAura) {
             this.components.aura = this.scene.add.graphics();
-            this.components.aura.fillStyle(this.config.auraColor, this.config.auraAlpha);
-            this.components.aura.fillCircle(0, this.y, this.config.handleSize * 0.8);
+            this.drawAura();
             this.components.aura.setDepth(2); // Below handle, above progress
         }
-        
+
         // Create display text
         this.components.text = this.scene.add.text(
             this.x, 
@@ -139,17 +116,60 @@ class SpaceSlider {
             this.config.textStyle
         ).setOrigin(0.5);
         this.components.text.setDepth(4); // On top of everything
-        
+
         // Set initial position
         this.updatePosition();
-        
+
         // Draw initial progress fill
         if (this.config.showProgress) {
             this.updateProgressFill();
         }
-        
+
         // Setup interactivity
         this.setupInteractivity();
+    }
+
+    drawTrack() {
+        if (!this.components.track) return;
+        this.components.track.clear();
+        this.components.track.fillStyle(this.config.trackColor, 1);
+        this.components.track.fillRoundedRect(
+            this.x - this.width/2,
+            this.y - this.config.sliderHeight/2,
+            this.width,
+            this.config.sliderHeight,
+            this.config.borderRadius
+        );
+        this.components.track.lineStyle(2, this.config.glowColor, this.config.glowAlpha);
+        this.components.track.strokeRoundedRect(
+            this.x - this.width/2,
+            this.y - this.config.sliderHeight/2,
+            this.width,
+            this.config.sliderHeight,
+            this.config.borderRadius
+        );
+    }
+
+    drawAura() {
+        if (!this.components.aura || !this.components.handle) return;
+        this.components.aura.clear();
+        this.components.aura.fillStyle(this.config.auraColor, this.config.auraAlpha);
+        this.components.aura.fillCircle(this.components.handle.x, this.components.handle.y, this.config.handleSize * 0.8);
+    }
+
+    drawStars() {
+        // Destroy old stars if any
+        if (this.components.stars && this.components.stars.length) {
+            this.components.stars.forEach(star => star.destroy());
+            this.components.stars = [];
+        }
+        const starCount = this.config.starCount;
+        for (let i = 0; i < starCount; i++) {
+            const starX = this.x - this.width/2 + (this.width * i / (starCount - 1));
+            const starY = this.y;
+            const star = this.createStar(starX, starY, 3, 0xffffff, 0.3);
+            this.components.stars.push(star);
+        }
     }
     
     createStar(x, y, size, color, alpha) {
@@ -192,9 +212,8 @@ class SpaceSlider {
                 const newX = Phaser.Math.Clamp(pointer.x, this.x - this.width/2, this.x + this.width/2);
                 this.components.handle.x = newX;
                 if (this.components.aura) {
-                    this.components.aura.x = newX;
+                    this.drawAura();
                 }
-                
                 const newValue = this.positionToValue(newX);
                 this.setValue(Math.round(newValue));
             }
@@ -220,7 +239,7 @@ class SpaceSlider {
         const position = this.valueToPosition(this.value);
         this.components.handle.x = position;
         if (this.components.aura) {
-            this.components.aura.x = position;
+            this.drawAura();
         }
         this.updateProgressFill();
     }
@@ -284,6 +303,52 @@ class SpaceSlider {
     
     setOnValueChange(callback) {
         this.onValueChange = callback;
+    }
+    
+    resize(x, y, width, config = {}) {
+        // Update position and size
+        this.x = x;
+        this.y = y;
+        this.width = width;
+
+        // Update configuration with new values
+        Object.assign(this.config, config);
+
+        // Update track
+        if (this.components.track) {
+            this.drawTrack();
+        }
+
+        // Update progress fill
+        if (this.config.showProgress && this.components.progressFill) {
+            this.updateProgressFill();
+        }
+
+        // Update stars
+        if (this.config.showStars && this.components.stars) {
+            this.drawStars();
+        }
+
+        // Update handle
+        if (this.components.handle) {
+            this.components.handle.y = this.y;
+            this.components.handle.setScale(this.config.handleSize / Math.max(this.components.handle.width, this.components.handle.height));
+        }
+
+        // Update aura
+        if (this.config.showAura && this.components.aura) {
+            this.drawAura();
+        }
+
+        // Update text
+        if (this.components.text) {
+            this.components.text.x = this.x;
+            this.components.text.y = this.y + this.config.textOffset;
+            this.updateText();
+        }
+
+        // Update handle position
+        this.updatePosition();
     }
     
     destroy() {

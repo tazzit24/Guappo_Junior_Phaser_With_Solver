@@ -31,17 +31,14 @@ var config = {
         createContainer: true
     },
     scale: {
-        mode: Phaser.Scale.FIT,
+        mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: 600,
-        height: 700,
-        pixelArt: true
+        pixelArt: false
     },
     render: {
-        pixelArt: true,
-        antialias: false
-}
-
+        pixelArt: false,
+        antialias: true
+    }
 };
 
 var game = new Phaser.Game(config);
