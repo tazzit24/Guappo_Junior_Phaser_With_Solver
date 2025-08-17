@@ -233,23 +233,27 @@ class SceneMain extends Phaser.Scene {
         // Update movable pieces (relative to container)
         if (this.wappo && this.wappo.getImg()) {
             let coords = getCoords(this.wappo.getLocation());
-            let x = coords.x * this.cellSize; // Relative to container
-            let y = coords.y * this.cellSize; // Relative to container
-            this.wappo.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
+                let x = coords.x * this.cellSize + this.cellSize / 2;
+                let y = coords.y * this.cellSize + this.cellSize / 2;
+                const nativeWappoSize = this.wappo.getImg().width || 64;
+                const scaleWappo = 0.9 * this.cellSize / nativeWappoSize;
+                this.wappo.getImg().setPosition(x, y).setScale(scaleWappo);
         }
         this.friends.forEach(friend => {
             if (friend && friend.getImg()) {
                 let coords = getCoords(friend.getLocation());
-                let x = coords.x * this.cellSize; // Relative to container
-                let y = coords.y * this.cellSize; // Relative to container
-                friend.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
+                    let x = coords.x * this.cellSize + this.cellSize / 2;
+                    let y = coords.y * this.cellSize + this.cellSize / 2;
+                    const nativeFriendSize = friend.getImg().width || 64;
+                    const scaleFriend = 0.9 * this.cellSize / nativeFriendSize;
+                    friend.getImg().setPosition(x, y).setScale(scaleFriend);
             }
         });
         this.enemies.forEach(enemy => {
             if (enemy && enemy.getImg()) {
                 let coords = getCoords(enemy.getLocation());
-                let x = coords.x * this.cellSize; // Relative to container
-                let y = coords.y * this.cellSize; // Relative to container
+                let x = coords.x * this.cellSize + enemy.getImg().originX * this.cellSize;
+                let y = coords.y * this.cellSize + enemy.getImg().originY * this.cellSize;
                 enemy.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
             }
         });
@@ -501,14 +505,9 @@ class SceneMain extends Phaser.Scene {
         // Draw movable pieces and link them to their GameLogic counterparts
         // Link Wappo
         this.wappo = this.game.wappo;
-        let coords = getCoords(this.wappo.getLocation());
-        let x = coords.x * this.cellSize; // Position relative to grid container
-        let y = coords.y * this.cellSize; // Position relative to grid container
-        var img_wappo = this.add.image(x, y, 'wappo');
-        img_wappo.setOrigin(0, 0);
-        img_wappo.setDisplaySize(this.cellSize, this.cellSize);
+            var img_wappo = this.add.image(0, 0, 'wappo'); // Position initiale neutre
+            img_wappo.setOrigin(0.5, 0.5);
         img_wappo.setInteractive();
-        
         img_wappo.on('pointerover', pointer => {
             let props = `Wappo\nStep: ${this.wappo.getStep()}\nOrder: ${this.wappo.getOrder ? this.wappo.getOrder() : 0}\nLocation: ${this.wappo.getLocation()}`;
             this.tooltip.setText(props);
@@ -523,19 +522,14 @@ class SceneMain extends Phaser.Scene {
         this.friends = this.game.friends;
         this.friends.forEach(friend => {
             if (!friend) return;
-            let friendCoords = getCoords(friend.getLocation());
-            let friendX = friendCoords.x * this.cellSize; // Position relative to grid container
-            let friendY = friendCoords.y * this.cellSize; // Position relative to grid container
-            var img_friend = this.add.image(friendX, friendY, 'friend_' + friend.getStep());
-            img_friend.setOrigin(0, 0);
-            img_friend.setDisplaySize(this.cellSize, this.cellSize);
+                var img_friend = this.add.image(0, 0, 'friend_' + friend.getStep()); // Position initiale neutre
+                img_friend.setOrigin(0.5, 0.5);
             img_friend.setInteractive();
-            
             img_friend.on('pointerover', pointer => {
                 let props = `Friend\nStep: ${friend.getStep()}\nOrder: ${friend.getOrder()}\nLocation: ${friend.getLocation()}`;
-            this.tooltip.setText(props);
-            this.tooltip.setPosition(pointer.worldX + 10, pointer.worldY + 10);
-            this.tooltip.setVisible(true);
+                this.tooltip.setText(props);
+                this.tooltip.setPosition(pointer.worldX + 10, pointer.worldY + 10);
+                this.tooltip.setVisible(true);
             });
             img_friend.on('pointerout', () => this.tooltip.setVisible(false));
             friend.setImg(img_friend);
@@ -550,7 +544,7 @@ class SceneMain extends Phaser.Scene {
             let enemyX = enemyCoords.x * this.cellSize; // Position relative to grid container
             let enemyY = enemyCoords.y * this.cellSize; // Position relative to grid container
             var img_enemy = this.add.image(enemyX, enemyY, 'enemy_' + enemy.getAxis() + "_" + enemy.getStep());
-            img_enemy.setOrigin(0, 0);
+            img_enemy.setOrigin(0.5, 0.5);
             img_enemy.setDisplaySize(this.cellSize, this.cellSize);
             img_enemy.setInteractive();
             
@@ -665,8 +659,8 @@ class SceneMain extends Phaser.Scene {
         this.enemies.forEach(enemy => {
             if (enemy && enemy.getImg()) {
                 let coords = getCoords(enemy.getLocation());
-                let x = coords.x * this.cellSize; // Relative to container
-                let y = coords.y * this.cellSize; // Relative to container
+                let x = coords.x * this.cellSize + this.cellSize / 2;
+                let y = coords.y * this.cellSize + this.cellSize / 2;
                 enemy.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
             }
         });
@@ -711,7 +705,7 @@ class SceneMain extends Phaser.Scene {
                 if (move.piece instanceof Enemy && move.dir) {
                     this.updateEnemyImageDirection(move.piece, move.dir);
                 }
-                return move.isBlocked ? this.animateStay(move.piece) : this.animateMove(move.piece, move.toXY);
+                return move.isBlocked ? this.animateStay(move.piece, move.dir) : this.animateMove(move.piece, move.toXY);
             });
             await Promise.all(animPromises);
         }
@@ -721,12 +715,16 @@ class SceneMain extends Phaser.Scene {
      * Animates a piece moving to a new cell.
      */
     animateMove(obj, target_cellXY) {
+        // Animate to cell position, taking origin into account
+        const img = obj.getImg();
+        const x = target_cellXY.x * this.cellSize + img.originX * this.cellSize;
+        const y = target_cellXY.y * this.cellSize + img.originY * this.cellSize;
         return new Promise(resolve => {
             this.tweens.add({
-                targets: obj.getImg(),
+                targets: img,
                 duration: 500,
-                x: target_cellXY.x * this.cellSize, // Relative to grid container
-                y: target_cellXY.y * this.cellSize, // Relative to grid container
+                x: x,
+                y: y,
                 ease: 'Power2',
                 onComplete: () => resolve()
             });
@@ -736,17 +734,42 @@ class SceneMain extends Phaser.Scene {
     /**
      * Animates a piece staying in place (e.g., a small bounce).
      */
-    animateStay(obj) {
-        return new Promise(resolve => {
-            this.tweens.add({
-                targets: obj.getImg(),
-                duration: 250,
-                scaleX: 0.9,
-                scaleY: 0.9,
-                yoyo: true,
-                ease: 'Power1',
-                onComplete: () => resolve()
-            });
+    animateStay(obj, dir) {
+        // Directional blocked bounce effect
+        return new Promise((resolve) => {
+            const img = obj.getImg();
+            const originalX = img.x;
+            const originalY = img.y;
+            const amplitude = this.cellSize * 0.1;
+            let prop, target;
+            if (dir === Enum.DIRECTION.NORTH) {
+                prop = 'y'; target = originalY - amplitude;
+            } else if (dir === Enum.DIRECTION.SOUTH) {
+                prop = 'y'; target = originalY + amplitude;
+            } else if (dir === Enum.DIRECTION.EAST) {
+                prop = 'x'; target = originalX + amplitude;
+            } else if (dir === Enum.DIRECTION.WEST) {
+                prop = 'x'; target = originalX - amplitude;
+            }
+            if (prop !== undefined) {
+                const tweenConfig = {
+                    targets: img,
+                    duration: 200,
+                    yoyo: true,
+                    repeat: 0,
+                    ease: 'Sine.easeInOut',
+                    onComplete: () => {
+                        img.x = originalX;
+                        img.y = originalY;
+                        resolve();
+                    }
+                };
+                tweenConfig[prop] = target;
+                this.tweens.add(tweenConfig);
+            } else {
+                // No direction: do nothing
+                resolve();
+            }
         });
     }
 

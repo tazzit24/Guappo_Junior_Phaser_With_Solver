@@ -118,7 +118,7 @@ class GameLogic {
                             friendMovesMap.set(friend, result.move);
                         } else {
                             if (!friendMovesMap.has(friend)) {
-                                friendMovesMap.set(friend, { piece: friend, isBlocked: true });
+                                friendMovesMap.set(friend, { piece: friend, isBlocked: true, dir: direction });
                             }
                         }
                     }
