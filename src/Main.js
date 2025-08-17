@@ -37,7 +37,7 @@ var config = {
     },
     render: {
         pixelArt: true,
-        antialias: true
+        antialias: false
     }
 };
 

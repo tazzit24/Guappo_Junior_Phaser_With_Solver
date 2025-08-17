@@ -273,13 +273,14 @@ class GameLogic {
                 if (!dest_cell || !dest_cell.containsEnemy()) {
                     piece.incrementMoves();
                 }
-            } else if (!isFriend) {
-                piece.incrementMoves();
-            }
-            // directionBeforeMove est la direction effective pour le flip
-            if (!isFriend || (isEnemy && (!dest_cell || !dest_cell.containsEnemy()))) {
-                moveDesc = { piece, isBlocked: true };
-                if (isEnemy) moveDesc.dir = directionBeforeMove;
+                // Bounce uniquement si bloqué par un autre ennemi
+                if (dest_cell && dest_cell.containsEnemy()) {
+                    moveDesc = { piece, isBlocked: true, dir: directionBeforeMove };
+                }
+            } else {
+                // Wappo et amis : bounce toujours avec direction
+                moveDesc = { piece, isBlocked: true, dir };
+                if (!isFriend) piece.incrementMoves();
             }
         }
         // Si la direction a changé mais pas de move, on force un flip
