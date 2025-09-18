@@ -20,11 +20,19 @@ class Button extends Phaser.GameObjects.Text {
     }
 
     disableButtonInteractive() {
-        this.disableInteractive()
-            .off('pointerover', this.enterButtonHoverState, this)
-            .off('pointerout', this.enterButtonRestState, this)
-            .off('pointerdown', this.enterButtonActiveState, this)
-            .off('pointerup', this.onButtonUp, this);
+        try {
+            // Check if scene is still valid before disabling
+            if (this.scene && this.scene.sys && this.scene.sys.input) {
+                this.disableInteractive()
+                    .off('pointerover', this.enterButtonHoverState, this)
+                    .off('pointerout', this.enterButtonRestState, this)
+                    .off('pointerdown', this.enterButtonActiveState, this)
+                    .off('pointerup', this.onButtonUp, this);
+            }
+        } catch (e) {
+            // Scene might be shutting down, just log and continue
+            console.warn("Button disableInteractive called during scene shutdown:", e);
+        }
     }
 
     onButtonUp() {
@@ -45,6 +53,24 @@ class Button extends Phaser.GameObjects.Text {
   
     enterButtonActiveState() {
       //this.setStyle({ fill: '#0ff' });
+    }
+    
+    // Override destroy to safely clean up
+    destroy(fromScene) {
+        try {
+            // First disable interactive to clean up event listeners
+            this.disableButtonInteractive();
+            // Then call parent destroy
+            super.destroy(fromScene);
+        } catch (e) {
+            // If disabling fails, still try to destroy
+            console.warn("Error during button cleanup, continuing with destroy:", e);
+            try {
+                super.destroy(fromScene);
+            } catch (destroyError) {
+                console.error("Critical error destroying button:", destroyError);
+            }
+        }
     }
   }
   

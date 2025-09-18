@@ -3,6 +3,7 @@ class SceneHome extends Phaser.Scene {
 
     levelSlider;
     button_go;
+    button_scores;
     logo;
     
     // Responsive layout properties
@@ -84,6 +85,19 @@ class SceneHome extends Phaser.Scene {
         this.button_go.setOrigin(0.5);
         this.add.existing(this.button_go);
 
+        // Scores Button
+        const scoresFontSize = Math.max(Math.min(Math.round(height * 0.06), 80), 24);
+        const scoresButtonY = buttonY + Math.max(Math.min(Math.round(height * 0.12), 100), 60);
+        this.button_scores = new Button(this, centerX, scoresButtonY, 'Scores', {
+            color: '#4a90e2',
+            fontSize: scoresFontSize + 'px',
+            fontFamily: 'Arial',
+            stroke: '#000000',
+            strokeThickness: Math.max(Math.round(scoresFontSize * 0.05), 2)
+        }, () => this.openScores());
+        this.button_scores.setOrigin(0.5);
+        this.add.existing(this.button_scores);
+
         this.updateLayout();
     }
     
@@ -133,6 +147,19 @@ class SceneHome extends Phaser.Scene {
             stroke: '#000000',
             strokeThickness: Math.max(Math.round(buttonFontSize * 0.05), 2)
         });
+
+        // Scores Button
+        const scoresFontSize = Math.max(Math.min(Math.round(height * 0.06), 80), 24);
+        const scoresButtonY = buttonY + Math.max(Math.min(Math.round(height * 0.12), 100), 60);
+        this.button_scores.setPosition(centerX, scoresButtonY);
+        this.button_scores.setFontSize(scoresFontSize + 'px');
+        this.button_scores.setStyle({
+            fontSize: scoresFontSize + 'px',
+            fontFamily: 'Arial',
+            color: '#4a90e2',
+            stroke: '#000000',
+            strokeThickness: Math.max(Math.round(scoresFontSize * 0.05), 2)
+        });
     }
     
     handleResize() {
@@ -169,6 +196,13 @@ class SceneHome extends Phaser.Scene {
         if (this.logo) {
             this.logo.destroy();
             this.logo = null;
+        }
+
+        // Clean up scores button
+        if (this.button_scores && this.button_scores.active) {
+            if (this.button_scores.disableButtonInteractive) this.button_scores.disableButtonInteractive();
+            if (this.button_scores.destroy) this.button_scores.destroy();
+            this.button_scores = null;
         }
         
         this.input.keyboard.off('keydown-ENTER');
@@ -238,5 +272,9 @@ class SceneHome extends Phaser.Scene {
 
         // Start the first iteration
         setTimeout(solveNext, 1);
+    }
+
+    openScores() {
+        this.scene.start('SceneScores');
     }
 }

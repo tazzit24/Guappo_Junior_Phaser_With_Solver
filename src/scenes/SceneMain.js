@@ -59,8 +59,9 @@ class SceneMain extends Phaser.Scene {
         this.load.image('wappo', 'assets/images/wappo.png');
         this.load.image('friend_1', 'assets/images/friend1.png');
         this.load.image('friend_2', 'assets/images/friend2.png');
-        this.load.image('enemy_V_1', 'assets/images/ev1.png');
-        this.load.image('enemy_V_2', 'assets/images/ev2.png');
+        // Charger les ennemis verticaux comme spritesheet avec 2 frames : 0=monte, 1=descend
+        this.load.spritesheet('enemy_V_1', 'assets/images/ev1.png', { frameWidth: 64, frameHeight: 64 });
+        this.load.spritesheet('enemy_V_2', 'assets/images/ev2.png', { frameWidth: 64, frameHeight: 64 });
         this.load.image('enemy_H_1', 'assets/images/eh1.png');
         this.load.image('enemy_H_2', 'assets/images/eh2.png');
         this.load.image('enemy_D_1', 'assets/images/ed1.png');
@@ -236,7 +237,7 @@ class SceneMain extends Phaser.Scene {
                 let x = coords.x * this.cellSize + this.cellSize / 2;
                 let y = coords.y * this.cellSize + this.cellSize / 2;
                 const nativeWappoSize = this.wappo.getImg().width || 64;
-                const scaleWappo = 0.9 * this.cellSize / nativeWappoSize;
+                const scaleWappo = 0.85 * this.cellSize / nativeWappoSize;
                 this.wappo.getImg().setPosition(x, y).setScale(scaleWappo);
         }
         this.friends.forEach(friend => {
@@ -245,7 +246,7 @@ class SceneMain extends Phaser.Scene {
                     let x = coords.x * this.cellSize + this.cellSize / 2;
                     let y = coords.y * this.cellSize + this.cellSize / 2;
                     const nativeFriendSize = friend.getImg().width || 64;
-                    const scaleFriend = 0.9 * this.cellSize / nativeFriendSize;
+                    const scaleFriend = 0.85 * this.cellSize / nativeFriendSize;
                     friend.getImg().setPosition(x, y).setScale(scaleFriend);
             }
         });
@@ -498,6 +499,20 @@ class SceneMain extends Phaser.Scene {
             
             this.gridCells[i] = img;
             this.gridContainer.add(img); // Add to container
+           
+            // // Effet barrel loupe avec preFX sur beehive (uniforme pour toutes les positions)
+            // if (imgKey === 'beehive' && img.preFX) {
+            //     const barrel = img.preFX.addBarrel(0.8);
+            //     this.tweens.add({
+            //         targets: barrel,
+            //         amount: 1.2,
+            //         duration: 1800,
+            //         yoyo: true,
+            //         repeat: -1,
+            //         repeatDelay: 100,
+            //         ease: 'Sine.easeInOut',
+            //     });
+            // }
         }
     }
 
@@ -505,11 +520,11 @@ class SceneMain extends Phaser.Scene {
         // Draw movable pieces and link them to their GameLogic counterparts
         // Link Wappo
         this.wappo = this.game.wappo;
-            var img_wappo = this.add.image(0, 0, 'wappo'); // Position initiale neutre
-            img_wappo.setOrigin(0.5, 0.5);
+        var img_wappo = this.add.image(0, 0, 'wappo'); // Position initiale neutre
+        img_wappo.setOrigin(0.5, 0.5);
         img_wappo.setInteractive();
         img_wappo.on('pointerover', pointer => {
-            let props = `Wappo\nStep: ${this.wappo.getStep()}\nOrder: ${this.wappo.getOrder ? this.wappo.getOrder() : 0}\nLocation: ${this.wappo.getLocation()}`;
+              let props = `Wappo\nStep: ${this.wappo.getStep()}\nOrder: ${this.wappo.getOrder ? this.wappo.getOrder() : 0}\nLocation: ${this.wappo.getLocation()}`;
             this.tooltip.setText(props);
             this.tooltip.setPosition(pointer.worldX + 10, pointer.worldY + 10);
             this.tooltip.setVisible(true);
@@ -522,8 +537,8 @@ class SceneMain extends Phaser.Scene {
         this.friends = this.game.friends;
         this.friends.forEach(friend => {
             if (!friend) return;
-                var img_friend = this.add.image(0, 0, 'friend_' + friend.getStep()); // Position initiale neutre
-                img_friend.setOrigin(0.5, 0.5);
+            var img_friend = this.add.image(0, 0, 'friend_' + friend.getStep()); // Position initiale neutre
+            img_friend.setOrigin(0.5, 0.5);
             img_friend.setInteractive();
             img_friend.on('pointerover', pointer => {
                 let props = `Friend\nStep: ${friend.getStep()}\nOrder: ${friend.getOrder()}\nLocation: ${friend.getLocation()}`;
@@ -531,9 +546,9 @@ class SceneMain extends Phaser.Scene {
                 this.tooltip.setPosition(pointer.worldX + 10, pointer.worldY + 10);
                 this.tooltip.setVisible(true);
             });
-            img_friend.on('pointerout', () => this.tooltip.setVisible(false));
-            friend.setImg(img_friend);
-            this.gridContainer.add(img_friend); // Add to grid container
+        img_friend.on('pointerout', () => this.tooltip.setVisible(false));
+        friend.setImg(img_friend);
+        this.gridContainer.add(img_friend); // Add to grid container
         }); 
             
         // Link Enemies
@@ -792,8 +807,12 @@ class SceneMain extends Phaser.Scene {
                 img.flipX = true;
             }
         } else if (axis === 'V') {
+            // Pour les ennemis verticaux, utiliser les frames du spritesheet
+            // Frame 0 = monte (NORTH), Frame 1 = descend (SOUTH)
             if (dir === Enum.DIRECTION.SOUTH) {
-                img.flipY = true;
+                img.setFrame(1); // Frame pour descendre
+            } else {
+                img.setFrame(0); // Frame pour monter
             }
         } else if (axis === 'D') {
             switch (dir) {

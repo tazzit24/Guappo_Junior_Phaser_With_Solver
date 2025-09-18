@@ -26,7 +26,17 @@ if (isMobile == -1) {
 var config = {
     type: Phaser.AUTO,
     parent: 'phaser-game',
-    scene: [SceneHome, SceneMain, SceneGameover],
+    scene: [SceneHome, SceneMain, SceneGameover, SceneScores],
+    plugins: {
+        global: [],
+        scene: [
+            {
+                key: 'rexUI',
+                plugin: window.rexuiplugin,
+                mapping: 'rexUI'
+            }
+        ]
+    },
     dom: {
         createContainer: true
     },
