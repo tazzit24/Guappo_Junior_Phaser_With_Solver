@@ -66,11 +66,12 @@ class SceneMain extends Phaser.Scene {
         this.load.image('enemy_H_2', 'assets/images/eh2.png');
         this.load.image('enemy_D_1', 'assets/images/ed1.png');
         this.load.image('enemy_D_2', 'assets/images/ed2.png');
-        this.load.scenePlugin({
-            key: 'rexuiplugin',
-            url: 'lib/rexuiplugin.min.js',
-            sceneKey: 'rexUI'
-        });
+        // Rex Ui is now loaded in the Phaser config
+        // this.load.scenePlugin({
+        //     key: 'rexuiplugin',
+        //     url: 'lib/rexuiplugin.min.js',
+        //     sceneKey: 'rexUI'
+        // });
     }
 
     create() {

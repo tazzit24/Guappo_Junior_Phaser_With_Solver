@@ -2,14 +2,17 @@
 // Centralise la logique de sauvegarde/chargement des scores
 
 class SaveGameHelper {
+    
+    // Retourne l'objet JSON complet des scores, ou un objet vide s'il n'existe pas
     static getScoresObj() {
         try {
-            return JSON.parse(localStorage.getItem('scores') || '{}');
+            return JSON.parse(window.localStorage.getItem('scores') || '{}');
         } catch (e) {
             return {};
         }
     }
 
+    // Sauvegarde le score pour un niveau donné
     static saveScore(levelId, score) {
         const now = new Date().toISOString();
         let scoresObj = this.getScoresObj();
@@ -31,9 +34,10 @@ class SaveGameHelper {
                 levelScore.dateBest = now;
             }
         }
-        localStorage.setItem('scores', JSON.stringify(scoresObj));
+        window.localStorage.setItem('scores', JSON.stringify(scoresObj));
     }
 
+    // Retourne le plus haut niveau sauvegardé (Integer), ou null si aucun niveau sauvegardé
     static getHighestSavedLevel() {
         const scoresObj = SaveGameHelper.getScoresObj();
         if (!scoresObj.levels) return null;
@@ -43,9 +47,18 @@ class SaveGameHelper {
         return Math.max(...keys.map(k => parseInt(k, 10)).filter(n => !isNaN(n)));
     }
 
+    // Retourne l'objet json du score pour un niveau donné, ou null si pas de score
     static getLevelScore(levelId) {
         const scoresObj = SaveGameHelper.getScoresObj();
         if (!scoresObj.levels) return null;
         return scoresObj.levels[String(levelId)] || null;
     }
+
+    /* Retourne le score corrigé à afficher (1 si <= 0 pour éviter les scores nuls ou négatifs)
+       Dans le jeu d'origine, on obtenait un gameover immédiat si le score tombait trop bas, en fonction du niveau de difficulté choisi.
+       Je ne veux pas reproduire ce comportement frustrant, tous les chemins mènent à Rome */
+    static getDisplayScore(score) {
+        return score <= 0 ? 1 : score;
+    }
+    
 }

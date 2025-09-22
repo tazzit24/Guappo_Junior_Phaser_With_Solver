@@ -43,11 +43,11 @@ var config = {
     scale: {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        pixelArt: true
+        pixelArt: false
     },
     render: {
-        pixelArt: true,
-        antialias: false
+        pixelArt: false,
+        antialias: true
     }
 };
 
