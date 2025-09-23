@@ -250,12 +250,11 @@ class SceneScores extends Phaser.Scene {
     }
     
     createResponsiveGrid() {
-        const cam = this.cameras.main;
         const rexUI = this.rexUI;
         
         // Création du panel avec les nouvelles dimensions
         this.panel = rexUI.add.scrollablePanel({
-            x: cam.centerX,
+            x: this.centerX,
             y: this.panelY,
             width: this.panelWidth,
             height: this.panelHeight,
