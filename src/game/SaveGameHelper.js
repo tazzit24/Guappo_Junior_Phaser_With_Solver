@@ -60,5 +60,21 @@ class SaveGameHelper {
     static getDisplayScore(score) {
         return score <= 0 ? 1 : score;
     }
+
+    // Calcule le score final (celui sauvegardé) en fonction des mouvements effectués et du score de base
+    static getCalculatedScore(moves, baseScore) {
+        return baseScore - (moves - baseScore);
+    }
+
+    // Recalcule le nombre de mouvements effectués en fonction du score calculé sauvegardé et du score de base (fait l'inverse de getCalculatedScore)
+    static getMovesFromScore(calculatedScore, baseScore) {
+        return (baseScore - calculatedScore) + baseScore;
+    }
+
+    static clearScores() {
+        // TODO: supprimer les scores
+        window.localStorage.removeItem('scores');
+    }
+
     
 }

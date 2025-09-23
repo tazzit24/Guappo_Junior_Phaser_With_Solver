@@ -142,8 +142,7 @@ class GameLogic {
         // which is consistent with the original game's state machine.
         if (this.checkIfWon()) {
             // --- SCORE LOGIC ---
-            let basescore = this.level.basescore || 0;
-            let calculatedScore = basescore - (this.moves_counter - basescore);
+            let calculatedScore = SaveGameHelper.getCalculatedScore(this.moves_counter, this.level.basescore);
             this.saveScore(this.level.id, calculatedScore);
             return { isWon: true, isLost: false };
         }
