@@ -11,13 +11,10 @@ class SceneScores extends Phaser.Scene {
     create() {
         // Écoute les événements de redimensionnement
         this.scale.on('resize', this.handleResize, this);
-        
         // Référence directe au JSON du cache Phaser
         this.levelsJson = JSON.parse(this.cache.text.get('levels'));
-
         // Configuration responsive
-        const cam = this.cameras.main;
-
+        // Utilisation de this.scale.gameSize pour le layout responsive
         // Pagination : 50 niveaux par page (calcul sans copie)
         this.currentPage = this.currentPage || 0;
         this.levelsPerPage = 50;
@@ -25,16 +22,12 @@ class SceneScores extends Phaser.Scene {
         this.totalPages = Math.ceil(totalPlayableLevels / this.levelsPerPage);
         this.startIndex = this.currentPage * this.levelsPerPage;
         this.endIndex = this.startIndex + this.levelsPerPage;
-        
         // Calcul initial du layout responsive
         this.calculateLayout();
-        
         // Création de la grille responsive d'abord (nécessaire pour calculer l'alignement)
         this.createResponsiveGrid();
-        
         // Création du container de navigation aligné à droite de la grille
         this.createNavContainer(this.startIndex, this.endIndex);
-        
         // Bouton retour aligné sur le bord gauche de la grille
         this.createBackButton();
     }
@@ -45,22 +38,19 @@ class SceneScores extends Phaser.Scene {
             this.detailPanel.destroy();
             this.detailPanel = null;
         }
-
-        const cam = this.cameras.main;
-        const panelWidth = Math.min(cam.width * 0.85, 700);
-        const panelHeight = Math.min(cam.height * 0.7, 520);
-
+        const gameWidth = this.scale.gameSize.width;
+        const gameHeight = this.scale.gameSize.height;
+        const panelWidth = Math.min(gameWidth * 0.85, 700);
+        const panelHeight = Math.min(gameHeight * 0.7, 520);
         // Panneau de détail
-        this.detailPanel = this.add.container(cam.centerX, cam.centerY);
-        
+        this.detailPanel = this.add.container(gameWidth / 2, gameHeight / 2);
         // Fond semi-transparent
-        const overlay = this.add.rectangle(0, 0, cam.width, cam.height, 0x000000, 0.7)
+        const overlay = this.add.rectangle(0, 0, gameWidth, gameHeight, 0x000000, 0.7)
             .setInteractive()
             .on('pointerdown', () => {
                 this.detailPanel.destroy();
                 this.detailPanel = null;
             });
-        
         // Panneau principal
         const bg = this.add.rectangle(0, 0, panelWidth, panelHeight, 0x1a1a2e)
             .setStrokeStyle(2, 0x4a90e2);
@@ -166,15 +156,15 @@ class SceneScores extends Phaser.Scene {
     }
 
     calculateLayout() {
-        const cam = this.cameras.main;
-        
+        const gameWidth = this.scale.gameSize.width;
+        const gameHeight = this.scale.gameSize.height;
         // Barre de navigation responsive - taille minimum garantie
-        this.navHeight = Math.max(Math.round(cam.height * 0.10), 80);
+        this.navHeight = Math.max(Math.round(gameHeight * 0.10), 80);
         this.navY = this.navHeight / 2;
-        this.centerX = cam.centerX;
+        this.centerX = gameWidth / 2;
         this.navFontSize = Math.max(Math.round(this.navHeight * 0.45), 28);
         // 2. Espacement horizontal de base (sera ajusté dynamiquement dans create)
-        this.navBtnOffset = Math.max(Math.round(cam.width * 0.18), 150);
+        this.navBtnOffset = Math.max(Math.round(gameWidth * 0.18), 150);
         this.homeBtnFontSize = this.navFontSize;
         this.navBtnFontSize = this.navFontSize;
         // 1. Réduit la taille du titre
@@ -184,7 +174,7 @@ class SceneScores extends Phaser.Scene {
         this.homeBtnX = this.centerX - this.navBtnOffset * 1.5;
         this.prevBtnX = this.centerX - this.navBtnOffset * 0.5;
         this.nextBtnX = this.centerX + this.navBtnOffset * 0.5;
-            // Styles centralisés pour les boutons/navigation
+        // Styles centralisés pour les boutons/navigation
         this.homeBtnStyle = {
             fontSize: this.homeBtnFontSize + 'px',
             fontFamily: 'Arial',
@@ -208,8 +198,8 @@ class SceneScores extends Phaser.Scene {
         };
         
         // Calculs pour la grille vraiment responsive
-        this.availableHeight = cam.height - this.navHeight - 40;
-        this.availableWidth = cam.width - 40;
+        this.availableHeight = gameHeight - this.navHeight - 40;
+        this.availableWidth = gameWidth - 40;
 
         // Calcul du nombre d'éléments à afficher pour cette page
         const itemsThisPage = Math.min(this.levelsPerPage, Math.max(0, 
