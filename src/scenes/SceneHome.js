@@ -14,8 +14,6 @@ class SceneHome extends Phaser.Scene {
     }
 
     preload() {
-        //this.load.html('levelform', './assets/level_form.html');
-        this.load.plugin('rexinputtextplugin', 'lib/rexinputtextplugin.min.js', true);
         this.load.text('levels', 'assets/levels/levels.json');
         this.load.image('logo', 'assets/images/Guappo_Junior_logo.png');
         this.load.image('wappo', 'assets/images/wappo.png'); // Bear head for slider bullet
