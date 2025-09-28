@@ -7,11 +7,12 @@ import { Enum } from '../game/Enum.js';
 import { Utils } from '../game/Utils.js';
 import { Enemy } from '../objects/Enemy.js';
 import { Solver } from '../solver/Solver.js';
+import { SaveGameHelper } from '../game/SaveGameHelper.js';
 
 export class SceneMain extends Phaser.Scene {
 
     level;
-    game; // Instance of GameLogic
+    gameLogic; // Instance of GameLogic
     text_moves;
     text_level;
     wappo;
@@ -85,8 +86,12 @@ export class SceneMain extends Phaser.Scene {
         var levelsJson = JSON.parse(this.cache.text.get('levels'));
         var lvlJson = levelsJson.levels.find(record => record.level == this.choosenLevel);
         this.level = new Level(lvlJson);
+        
         // Create GameLogic instance
-        this.game = new GameLogic(this.level);
+        this.gameLogic = new GameLogic(this.level);
+        
+        // Set up event listeners for game events
+        this.setupGameEventListeners();
 
         // Grid and pieces (needed for grid position)
         this.createGrid();
@@ -168,6 +173,37 @@ export class SceneMain extends Phaser.Scene {
     handleResize() {
         this.calculateLayout();
         this.updateLayout();
+    }
+    
+    /**
+     * Set up listeners for game events from GameLogic
+     */
+    setupGameEventListeners() {
+        this.gameLogic.on('turnStart', (data) => {
+            console.log('Turn started with direction:', data.direction);
+        });
+        
+        this.gameLogic.on('pieceMoved', (data) => {
+            // Nothing to do here - movement animations will be handled in animateMoves
+        });
+        
+        this.gameLogic.on('turnEnd', (data) => {
+            this.updateMovesCounter();
+        });
+        
+        // Note: gameWon/gameOver n'affichent plus directement l'écran de fin
+        // Les événements sont émis mais l'affichage est géré dans fireUserInput
+        // après que toutes les animations soient terminées
+        
+        this.gameLogic.on('gameWon', (data) => {
+            console.log('Game won event received, waiting for animations to complete');
+            // Les actions sont maintenant gérées après les animations dans fireUserInput
+        });
+        
+        this.gameLogic.on('gameOver', (data) => {
+            console.log('Game over event received, waiting for animations to complete');
+            // Les actions sont maintenant gérées après les animations dans fireUserInput
+        });
     }
     
     updateLayout() {
@@ -374,15 +410,18 @@ export class SceneMain extends Phaser.Scene {
             const reloadY = gridTopY - containerY + regularBtnSize + 10;
             this.btnReload = this.createButton(0, reloadY, 'RELOAD', regularButtonStyle, () => this.reloadLevel());
             this.btnReload.setOrigin(0.5, 0);
+            // Solve button just below Reload button
+            const solveY = reloadY + regularBtnSize + 10;
+            this.btnSolve = this.createButton(0, solveY, 'SOLVE', regularButtonStyle, () => this.runSolver());
+            this.btnSolve.setOrigin(0.5, 0);
             this.btnMusic = this.createButton(0, gridBottomY - containerY, this.musicEnabled ? 'MUSIC ON' : 'MUSIC OFF', regularButtonStyle, () => this.toggleMusic());
             this.btnMusic.setOrigin(0.5, 1);
             // Add all buttons to container
             this.controlsContainer.add([
                 this.btnUp, this.btnLeft, this.btnRight, this.btnDown,
-                this.btnHome, this.btnReload, this.btnMusic
+                this.btnHome, this.btnReload, this.btnSolve, this.btnMusic
             ]);
             // Hidden buttons
-            this.btnSolve = this.createHiddenButton('SOLVE', () => this.runSolver());
             this.btnPrev = this.createHiddenButton('PREV', () => this.fireChangeLevel(-1));
             this.btnNext = this.createHiddenButton('NEXT', () => this.fireChangeLevel(1));
         } else {
@@ -436,15 +475,19 @@ export class SceneMain extends Phaser.Scene {
             this.btnReload.setOrigin(0.5, 0.5);
             this.btnMusic = this.createButton(musicX, bottomRowY, this.musicEnabled ? 'MUSIC ON' : 'MUSIC OFF', regularButtonStyle, () => this.toggleMusic());
             this.btnMusic.setOrigin(1, 0.5);
+            
+            // Solve button below Reload button (second row)
+            const secondRowY = bottomRowY + regularBtnSize + 10;
+            this.btnSolve = this.createButton(reloadX, secondRowY, 'SOLVE', regularButtonStyle, () => this.runSolver());
+            this.btnSolve.setOrigin(0.5, 0.5);
 
             // Add all buttons to container
             this.controlsContainer.add([
                 this.btnUp, this.btnLeft, this.btnRight, this.btnDown,
-                this.btnHome, this.btnReload, this.btnMusic
+                this.btnHome, this.btnReload, this.btnSolve, this.btnMusic
             ]);
             
             // Hidden buttons
-            this.btnSolve = this.createHiddenButton('SOLVE', () => this.runSolver());
             this.btnPrev = this.createHiddenButton('PREV', () => this.fireChangeLevel(-1));
             this.btnNext = this.createHiddenButton('NEXT', () => this.fireChangeLevel(1));
         }
@@ -482,7 +525,7 @@ export class SceneMain extends Phaser.Scene {
             let coords = Utils.getCoords(i);
             let x = coords.x * this.cellSize; // Position relative to container
             let y = coords.y * this.cellSize; // Position relative to container
-            let cell = this.game.cells[i];
+            let cell = this.gameLogic.cells[i];
             let imgKey = cell.isBeeHive() ? 'beehive' : cell.isGap() ? 'gap' : cell.isTrap() ? 'trap' : 'vine';
             let img = this.add.image(x, y, imgKey);
             img.setOrigin(0, 0);
@@ -522,7 +565,7 @@ export class SceneMain extends Phaser.Scene {
     createMovablePieces() {
         // Draw movable pieces and link them to their GameLogic counterparts
         // Link Wappo
-        this.wappo = this.game.wappo;
+        this.wappo = this.gameLogic.wappo;
         var img_wappo = this.add.image(0, 0, 'wappo'); // Position initiale neutre
         img_wappo.setOrigin(0.5, 0.5);
         img_wappo.setInteractive();
@@ -537,7 +580,7 @@ export class SceneMain extends Phaser.Scene {
         this.gridContainer.add(img_wappo); // Add to grid container
 
         // Link Friends
-        this.friends = this.game.friends;
+        this.friends = this.gameLogic.friends;
         this.friends.forEach(friend => {
             if (!friend) return;
             var img_friend = this.add.image(0, 0, 'friend_' + friend.getStep()); // Position initiale neutre
@@ -555,7 +598,7 @@ export class SceneMain extends Phaser.Scene {
         }); 
             
         // Link Enemies
-        this.enemies = this.game.enemies;
+        this.enemies = this.gameLogic.enemies;
         this.enemies.forEach(enemy => {
             if (!enemy) return;
             let enemyCoords = Utils.getCoords(enemy.getLocation());
@@ -595,8 +638,12 @@ export class SceneMain extends Phaser.Scene {
         this.cursors.left.on('down', () => this.fireUserInput(Enum.DIRECTION.WEST));
         this.cursors.right.on('down', () => this.fireUserInput(Enum.DIRECTION.EAST));
 
-        // TODO : Remove for production
-        //this.runSolver();
+        // Hidden solver function - Press 'S' to solve level
+        const solverKey = this.input.keyboard.addKey('S');
+        solverKey.on('down', () => {
+            console.log("Solver hotkey pressed!");
+            this.runSolver();
+        });
 
         // Détection du swipe tactile pour mobile
         this.input.on('pointerdown', pointer => {
@@ -694,24 +741,50 @@ export class SceneMain extends Phaser.Scene {
         }
 
         this.isAnimating = true;
+        // Disable all buttons during animation
         [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
             if (btn && btn.disableButtonInteractive) btn.disableButtonInteractive();
         });
 
-        const gameStatus = this.game.simulateTurn(dir);
-        this.updateMovesCounter();
-
-        // Animate all moves that occurred during the turn
-        await this.animateMoves(this.game.lastTurnMoves);
-
-        // Update game status after animations
-        this.updateGameStatus(gameStatus.isLost, gameStatus.isWon);
-
-        // Re-enable input
-        [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
-            if (btn && btn.enableButtonInteractive) btn.enableButtonInteractive();
-        });
-        this.isAnimating = false;
+        // Run game logic and get status
+        const gameStatus = this.gameLogic.simulateTurn(dir);
+        
+        // IMPORTANT: Toujours animer les mouvements avant de terminer le tour
+        // Pour que les animations se déroulent correctement avant d'afficher les messages
+        await this.animateMoves(this.gameLogic.lastTurnMoves);
+        
+        // Pour les tours normaux, on active les inputs
+        if (!gameStatus.isWon && !gameStatus.isLost) {
+            [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
+                if (btn && btn.enableButtonInteractive) btn.enableButtonInteractive();
+            });
+            this.isAnimating = false;
+        } else {
+            // Pour les fins de jeu (victoire/défaite), on lance les événements
+            // de fin de jeu APRÈS l'animation
+            if (gameStatus.isWon) {
+                this.scene.pause();
+                this.scene.launch("SceneGameover", {
+                    "status": "WON", 
+                    "choosenLevel": this.choosenLevel, 
+                    "moves": this.gameLogic.moves_counter,
+                    "score": SaveGameHelper.getCalculatedScore(this.gameLogic.moves_counter, this.level.basescore)
+                });
+            } else if (gameStatus.isLost) {
+                this.scene.pause();
+                this.scene.launch("SceneGameover", {
+                    "status": "DIED", 
+                    "choosenLevel": this.choosenLevel, 
+                    "moves": this.gameLogic.moves_counter
+                });
+            }
+            
+            // Assurez-vous que les contrôles sont réactivés après la fin du jeu
+            [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
+                if (btn && btn.enableButtonInteractive) btn.enableButtonInteractive();
+            });
+            this.isAnimating = false;
+        }
     }
 
     /**
@@ -861,6 +934,14 @@ export class SceneMain extends Phaser.Scene {
             this.gridContainer = null;
         }
         
+        // Cleanup event listeners when scene shuts down
+        if (this.gameLogic) {
+            // Remove all event listeners for cleaner shutdown
+            if (this.gameLogic.eventEmitter) {
+                this.gameLogic.eventEmitter.events = {};
+            }
+        }
+        
         // Clear button references
         this.btnUp = null;
         this.btnDown = null;
@@ -885,27 +966,22 @@ export class SceneMain extends Phaser.Scene {
         this.wappo = null;
         this.friends = [];
         this.enemies = [];
-        this.game = null;
+        this.gameLogic = null;
         this.level = null;
         this.text_moves = null;
         this.text_level = null;
         this.gridCells = null;
     }
 
+    // Cette méthode n'est plus utilisée car remplacée par les événements du GameLogic
+    // Elle est conservée pour compatibilité avec d'autres parties du code
     updateGameStatus(died, won) {
-        if (died) {
-            console.log("GAME OVER");
-            this.scene.pause();
-            this.scene.launch("SceneGameover", {"status": "DIED", "choosenLevel": this.choosenLevel, "moves": this.game.moves_counter});
-        } else if (won) {
-            console.log("GAME WON");
-            this.scene.pause();
-            this.scene.launch("SceneGameover", {"status": "WON", "choosenLevel": this.choosenLevel, "moves": this.game.moves_counter});
-        }
+        // Fonction vide car les événements remplacent cette fonctionnalité
+        console.log("updateGameStatus called but is now deprecated");
     }
 
     updateMovesCounter() {
-        this.text_moves.setText('Moves: ' + this.game.moves_counter + "/" + this.level.getBasescore());
+        this.text_moves.setText('Moves: ' + this.gameLogic.moves_counter + "/" + this.level.getBasescore());
     }
 
     toggleMusic() {
@@ -947,6 +1023,7 @@ export class SceneMain extends Phaser.Scene {
 
     runSolver() {
         console.log("Attempting to solve level " + this.level.getId() + "...");
+        // Disable all buttons during solving
         [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
             if (btn && btn.disableButtonInteractive) btn.disableButtonInteractive();
         });
@@ -955,6 +1032,7 @@ export class SceneMain extends Phaser.Scene {
         console.log("Solver finished.");
         console.log(solution);
 
+        // Re-enable all buttons after solving
         [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
             if (btn && btn.enableButtonInteractive) btn.enableButtonInteractive();
         });

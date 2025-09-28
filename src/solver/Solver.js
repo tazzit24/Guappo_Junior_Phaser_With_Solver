@@ -3,6 +3,7 @@
 import { GameLogic } from '../game/GameLogic.js';
 import { Utils } from '../game/Utils.js';
 import { Level } from '../game/Level.js';
+import { Enum } from '../game/Enum.js';
 
 export class Solver {
 

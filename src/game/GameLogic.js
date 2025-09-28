@@ -11,6 +11,7 @@ import { Hero } from '../objects/Hero.js';
 import { Enemy } from '../objects/Enemy.js';
 import { Enum } from './Enum.js';
 import { SaveGameHelper } from './SaveGameHelper.js';
+import { EventEmitter } from './EventEmitter.js';
 
 export class GameLogic {
     level;
@@ -18,11 +19,13 @@ export class GameLogic {
     friends = [];
     enemies = [];
     wappo;
+    eventEmitter;
     moves_counter = 0;
     lastTurnMoves = []; // Array of move sets to be animated
 
     constructor(level) {
         this.level = level;
+        this.eventEmitter = new EventEmitter();
         this.reset();
     }
 
@@ -76,6 +79,7 @@ export class GameLogic {
      */
     simulateTurn(direction) {
         this.moves_counter++;
+        this.eventEmitter.emit('turnStart', { direction, moves: this.moves_counter });
         this.lastTurnMoves = []; // Clear moves from previous turn
 
         // --- Wappo's Move ---
@@ -86,12 +90,15 @@ export class GameLogic {
             // Add the fatal move to the animation queue
             if (wappoMove.move) {
                 this.lastTurnMoves.push([wappoMove.move]);
+                this.eventEmitter.emit('pieceMoved', { moves: [wappoMove.move] });
             }
+            this.eventEmitter.emit('gameOver', { reason: 'wappo_died', moves: this.moves_counter });
             return { isWon: false, isLost: true }; // Wappo died
         }
         // Add Wappo's move to the first set of animations if it happened
         if (wappoMove.move) {
             this.lastTurnMoves.push([wappoMove.move]);
+            this.eventEmitter.emit('pieceMoved', { moves: [wappoMove.move] });
         }
 
         // --- Friends' Moves (nouvelle logique alignée sur les ennemis) ---
@@ -115,7 +122,9 @@ export class GameLogic {
                         if (result.died) {
                             if (result.move) {
                                 this.lastTurnMoves.push([result.move]);
+                                this.eventEmitter.emit('pieceMoved', { moves: [result.move] });
                             }
+                            this.eventEmitter.emit('gameOver', { reason: 'friend_died', moves: this.moves_counter });
                             return { isWon: false, isLost: true }; // A friend died
                         }
                         if (friend.getLocation() !== originalLocation) {
@@ -135,6 +144,7 @@ export class GameLogic {
             const allMovesForStepRound = Array.from(friendMovesMap.values());
             if (allMovesForStepRound.length > 0) {
                 this.lastTurnMoves.push(allMovesForStepRound);
+                this.eventEmitter.emit('pieceMoved', { moves: allMovesForStepRound });
             }
             // Après tous les ticks de ce stepRound, on incrémente movesCounter des amis qui n'ont pas pu bouger
             for (const friend of sortedFriends) {
@@ -151,6 +161,11 @@ export class GameLogic {
             // --- SCORE LOGIC ---
             let calculatedScore = SaveGameHelper.getCalculatedScore(this.moves_counter, this.level.basescore);
             this.saveScore(this.level.id, calculatedScore);
+            this.eventEmitter.emit('gameWon', { 
+                score: calculatedScore, 
+                moves: this.moves_counter,
+                levelId: this.level.id
+            });
             return { isWon: true, isLost: false };
         }
 
@@ -190,7 +205,9 @@ export class GameLogic {
                         if (result.died) {
                             if (result.move) {
                                 this.lastTurnMoves.push([result.move]);
+                                this.eventEmitter.emit('pieceMoved', { moves: [result.move] });
                             }
+                            this.eventEmitter.emit('gameOver', { reason: 'enemy_attack', moves: this.moves_counter });
                             return { isWon: false, isLost: true };
                         }
                         if (enemy.getLocation() !== originalLocation) {
@@ -214,6 +231,7 @@ export class GameLogic {
             const allMovesForStepRound = Array.from(enemyMovesMap.values());
             if (allMovesForStepRound.length > 0) {
                 this.lastTurnMoves.push(allMovesForStepRound);
+                this.eventEmitter.emit('pieceMoved', { moves: allMovesForStepRound });
             }
 
             // After all ticks for this step round, any enemy that was supposed to move but couldn't
@@ -229,7 +247,12 @@ export class GameLogic {
         this.wappo.resetMoves();
         this.friends.forEach(f => f && f.resetMoves());
         this.enemies.forEach(e => e && e.resetMoves());
-
+        
+        this.eventEmitter.emit('turnEnd', { 
+            moves: this.moves_counter, 
+            state: this.getStateSnapshot() 
+        });
+        
         return { isWon: false, isLost: false }; // Turn ends, no win or loss this turn.
     }
 
@@ -457,5 +480,24 @@ export class GameLogic {
                 this.cells[enemyState.loc].setMovableObj(this.enemies[index]);
             }
         });
+    }
+    
+    /**
+     * Convenience method to register a listener for game events
+     * @param {string} eventName - Name of event to listen for
+     * @param {Function} callback - Function to call when event occurs
+     * @returns {Function} - Unsubscribe function
+     */
+    on(eventName, callback) {
+        return this.eventEmitter.on(eventName, callback);
+    }
+    
+    /**
+     * Convenience method to unregister a listener
+     * @param {string} eventName - Name of event to stop listening to
+     * @param {Function} callback - Function to remove
+     */
+    off(eventName, callback) {
+        this.eventEmitter.off(eventName, callback);
     }
 }
