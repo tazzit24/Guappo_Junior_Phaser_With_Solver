@@ -1,6 +1,9 @@
 'use strict';
 
-class Enemy extends MovablePiece {
+import { MovablePiece } from './MovablePiece.js';
+import { Enum } from '../game/Enum.js';
+
+export class Enemy extends MovablePiece {
     axis;
     direction;
     order;

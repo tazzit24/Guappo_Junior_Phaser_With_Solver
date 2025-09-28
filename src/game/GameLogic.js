@@ -5,7 +5,14 @@
  * It knows the rules and can simulate moves without any graphics.
  */
 
-class GameLogic {
+import { Utils } from './Utils.js';
+import { Cell } from '../objects/Cell.js';
+import { Hero } from '../objects/Hero.js';
+import { Enemy } from '../objects/Enemy.js';
+import { Enum } from './Enum.js';
+import { SaveGameHelper } from './SaveGameHelper.js';
+
+export class GameLogic {
     level;
     cells = [];
     friends = [];
@@ -258,7 +265,7 @@ class GameLogic {
             moveDesc = { piece, toXY: target_cellXY, isBlocked: false };
             if (isEnemy) moveDesc.dir = directionBeforeMove;
             piece.incrementMoves();
-            const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
+            const target_cellNum = Utils.getCellnum(target_cellXY.x, target_cellXY.y);
             const dest_cell = this.cells[target_cellNum];
             if (this.isFatalMove(piece, dest_cell)) {
                 return { died: true, move: moveDesc };
@@ -268,7 +275,7 @@ class GameLogic {
             dest_cell.setMovableObj(piece);
         } else {
             if (isEnemy) {
-                const dest_cell = this.cells[getCellnum(target_cellXY.x, target_cellXY.y)];
+                const dest_cell = this.cells[Utils.getCellnum(target_cellXY.x, target_cellXY.y)];
                 if (!dest_cell || !dest_cell.containsEnemy()) {
                     piece.incrementMoves();
                 }
@@ -294,7 +301,7 @@ class GameLogic {
         if (dest_cell_type === Cell.STATIC_CELL_TYPE.WALL || dest_cell_type === Cell.STATIC_CELL_TYPE.GAP) {
             return false;
         }
-        const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
+        const target_cellNum = Utils.getCellnum(target_cellXY.x, target_cellXY.y);
         if (this.cells[target_cellNum].containsHero()) {
             return false;
         }
@@ -307,7 +314,7 @@ class GameLogic {
             return false;
         }
         // According to the original Java logic, enemies block each other.
-        const target_cellNum = getCellnum(target_cellXY.x, target_cellXY.y);
+        const target_cellNum = Utils.getCellnum(target_cellXY.x, target_cellXY.y);
         if (this.cells[target_cellNum].containsEnemy()) {
             return false;
         }
@@ -369,7 +376,7 @@ class GameLogic {
         if (cellXY.x < 0 || cellXY.x > 5 || cellXY.y < 0 || cellXY.y > 5) {
             return Cell.STATIC_CELL_TYPE.WALL;
         }
-        return this.cells[getCellnum(cellXY.x, cellXY.y)].getType();
+        return this.cells[Utils.getCellnum(cellXY.x, cellXY.y)].getType();
     }
 
     getTargetCell(obj, dir) {

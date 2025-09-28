@@ -1,6 +1,8 @@
 'use strict';
 
-class SceneGameover extends Phaser.Scene {  
+import { Button } from '../ui/Button.js';
+
+export class SceneGameover extends Phaser.Scene {  
 
     level_status;
     choosenLevel;

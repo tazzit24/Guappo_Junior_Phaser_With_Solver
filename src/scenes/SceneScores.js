@@ -1,4 +1,6 @@
-class SceneScores extends Phaser.Scene {
+import { SaveGameHelper } from '../game/SaveGameHelper.js';
+
+export class SceneScores extends Phaser.Scene {
    
     constructor() {
         super('SceneScores');

@@ -1,6 +1,10 @@
 'use strict';
 
-class Solver {
+import { GameLogic } from '../game/GameLogic.js';
+import { Utils } from '../game/Utils.js';
+import { Level } from '../game/Level.js';
+
+export class Solver {
 
     /**
      * Attempts to find a solution for a given level.
@@ -245,7 +249,7 @@ class Solver {
      * @private
      */
     static _heuristic(logic) {
-        const beehiveLocations = logic.level.getBeehives().map(cellNum => getCoords(cellNum));
+        const beehiveLocations = logic.level.getBeehives().map(cellNum => Utils.getCoords(cellNum));
         if (beehiveLocations.length === 0) return 0;
 
         const heroes = [logic.wappo, ...logic.friends.filter(f => f)];

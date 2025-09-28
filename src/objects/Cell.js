@@ -1,5 +1,8 @@
 'use strict';
 
+import { Hero } from './Hero.js';
+import { Enemy } from './Enemy.js';
+
 const STATIC_CELL_TYPE = {
     VINE: "vine",
     GAP: "gap",
@@ -8,7 +11,7 @@ const STATIC_CELL_TYPE = {
     WALL: "wall" // fake type
 };
 
-class Cell {
+export class Cell {
     
 	number; // 0 -> 35
     type; // 1 = gap , 2 = beeHive , 3 = pothos , 7 = standart cell (vine)

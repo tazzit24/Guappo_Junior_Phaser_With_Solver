@@ -17,7 +17,7 @@ const DIRECTION = {
     SOUTH_WEST: "SW"
 };
 
-class Enum {
+export class Enum {
 
     static get DIRECTION() {
         return DIRECTION;

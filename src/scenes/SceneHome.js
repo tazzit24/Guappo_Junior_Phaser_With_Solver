@@ -1,4 +1,10 @@
-class SceneHome extends Phaser.Scene {
+import { SceneMain } from './SceneMain.js';
+import { Level } from '../game/Level.js';
+import { Button } from '../ui/Button.js';
+import { SpaceSlider } from '../ui/SpaceSlider.js';
+import { SaveGameHelper } from '../game/SaveGameHelper.js';
+
+export class SceneHome extends Phaser.Scene {
     levelsJson;
 
     levelSlider;

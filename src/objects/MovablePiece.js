@@ -1,6 +1,8 @@
 'use strict';
 
-class MovablePiece {
+import { Utils } from '../game/Utils.js';
+
+export class MovablePiece {
 
     #name;
     #step;
@@ -28,7 +30,7 @@ class MovablePiece {
     }
 
     getLocationXY() {
-        return getCoords(this.#location);
+        return Utils.getCoords(this.#location);
     }
 
     setLocation(cell) {

@@ -1,7 +1,7 @@
 // Fichier SaveGameHelper.js
 // Centralise la logique de sauvegarde/chargement des scores
 
-class SaveGameHelper {
+export class SaveGameHelper {
     
     // Retourne l'objet JSON complet des scores, ou un objet vide s'il n'existe pas
     static getScoresObj() {

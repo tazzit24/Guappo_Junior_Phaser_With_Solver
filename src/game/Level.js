@@ -1,6 +1,6 @@
 'use strict';
 
-class Level {
+export class Level {
     #id;
     #basescore;
     #gaps;

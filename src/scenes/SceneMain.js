@@ -1,6 +1,14 @@
 'use strict';
 
-class SceneMain extends Phaser.Scene {
+import { Level } from '../game/Level.js';
+import { GameLogic } from '../game/GameLogic.js';
+import { Button } from '../ui/Button.js';
+import { Enum } from '../game/Enum.js';
+import { Utils } from '../game/Utils.js';
+import { Enemy } from '../objects/Enemy.js';
+import { Solver } from '../solver/Solver.js';
+
+export class SceneMain extends Phaser.Scene {
 
     level;
     game; // Instance of GameLogic
@@ -220,7 +228,7 @@ class SceneMain extends Phaser.Scene {
         // Update grid positions and sizes (relative to container)
         for (let i = 0; i < 36; i++) {
             if (this.gridCells && this.gridCells[i]) {
-                let coords = getCoords(i);
+                let coords = Utils.getCoords(i);
                 let x = coords.x * this.cellSize; // Relative to container
                 let y = coords.y * this.cellSize; // Relative to container
                 this.gridCells[i].setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
@@ -228,7 +236,7 @@ class SceneMain extends Phaser.Scene {
         }
         // Update movable pieces (relative to container)
         if (this.wappo && this.wappo.getImg()) {
-            let coords = getCoords(this.wappo.getLocation());
+            let coords = Utils.getCoords(this.wappo.getLocation());
                 let x = coords.x * this.cellSize + this.cellSize / 2;
                 let y = coords.y * this.cellSize + this.cellSize / 2;
                 const nativeWappoSize = this.wappo.getImg().width || 64;
@@ -237,7 +245,7 @@ class SceneMain extends Phaser.Scene {
         }
         this.friends.forEach(friend => {
             if (friend && friend.getImg()) {
-                let coords = getCoords(friend.getLocation());
+                let coords = Utils.getCoords(friend.getLocation());
                     let x = coords.x * this.cellSize + this.cellSize / 2;
                     let y = coords.y * this.cellSize + this.cellSize / 2;
                     const nativeFriendSize = friend.getImg().width || 64;
@@ -247,7 +255,7 @@ class SceneMain extends Phaser.Scene {
         });
         this.enemies.forEach(enemy => {
             if (enemy && enemy.getImg()) {
-                let coords = getCoords(enemy.getLocation());
+                let coords = Utils.getCoords(enemy.getLocation());
                 let x = coords.x * this.cellSize + enemy.getImg().originX * this.cellSize;
                 let y = coords.y * this.cellSize + enemy.getImg().originY * this.cellSize;
                 enemy.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
@@ -471,7 +479,7 @@ class SceneMain extends Phaser.Scene {
         // Draw static grid with interactive tooltips
         this.gridCells = [];
         for (let i = 0; i < 36; i++) {
-            let coords = getCoords(i);
+            let coords = Utils.getCoords(i);
             let x = coords.x * this.cellSize; // Position relative to container
             let y = coords.y * this.cellSize; // Position relative to container
             let cell = this.game.cells[i];
@@ -550,7 +558,7 @@ class SceneMain extends Phaser.Scene {
         this.enemies = this.game.enemies;
         this.enemies.forEach(enemy => {
             if (!enemy) return;
-            let enemyCoords = getCoords(enemy.getLocation());
+            let enemyCoords = Utils.getCoords(enemy.getLocation());
             let enemyX = enemyCoords.x * this.cellSize; // Position relative to grid container
             let enemyY = enemyCoords.y * this.cellSize; // Position relative to grid container
             var img_enemy = this.add.image(enemyX, enemyY, 'enemy_' + enemy.getAxis() + "_" + enemy.getStep());
@@ -626,7 +634,7 @@ class SceneMain extends Phaser.Scene {
         // Reposition grid elements (relative to container)
         for (let i = 0; i < 36; i++) {
             if (this.gridCells && this.gridCells[i]) {
-                let coords = getCoords(i);
+                let coords = Utils.getCoords(i);
                 let x = coords.x * this.cellSize; // Relative to container
                 let y = coords.y * this.cellSize; // Relative to container
                 this.gridCells[i].setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
@@ -651,7 +659,7 @@ class SceneMain extends Phaser.Scene {
 
         // Reposition movable pieces (relative to container)
         if (this.wappo && this.wappo.getImg()) {
-            let coords = getCoords(this.wappo.getLocation());
+            let coords = Utils.getCoords(this.wappo.getLocation());
             let x = coords.x * this.cellSize; // Relative to container
             let y = coords.y * this.cellSize; // Relative to container
             this.wappo.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
@@ -659,7 +667,7 @@ class SceneMain extends Phaser.Scene {
 
         this.friends.forEach(friend => {
             if (friend && friend.getImg()) {
-                let coords = getCoords(friend.getLocation());
+                let coords = Utils.getCoords(friend.getLocation());
                 let x = coords.x * this.cellSize; // Relative to container
                 let y = coords.y * this.cellSize; // Relative to container
                 friend.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
@@ -668,7 +676,7 @@ class SceneMain extends Phaser.Scene {
 
         this.enemies.forEach(enemy => {
             if (enemy && enemy.getImg()) {
-                let coords = getCoords(enemy.getLocation());
+                let coords = Utils.getCoords(enemy.getLocation());
                 let x = coords.x * this.cellSize + this.cellSize / 2;
                 let y = coords.y * this.cellSize + this.cellSize / 2;
                 enemy.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
@@ -914,7 +922,7 @@ class SceneMain extends Phaser.Scene {
     }
 
     showConfirmDialog(callback) {
-        var dialog = CreateDialog(this);
+        var dialog = Utils.CreateDialog(this);
         dialog.setPosition(this.scale.gameSize.width / 2, this.scale.gameSize.height / 2);
         dialog.layout();
         dialog.modalPromise({

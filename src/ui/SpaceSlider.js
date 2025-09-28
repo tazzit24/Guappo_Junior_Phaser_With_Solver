@@ -30,7 +30,7 @@
  *   - progressColor: number - Solid color for progress fill (default: 0x4a90e2)
  *   - progressAlpha: number - Alpha transparency for progress fill (default: 1.0)
  */
-class SpaceSlider {
+export class SpaceSlider {
     constructor(scene, x, y, width, minValue, maxValue, initialValue, config = {}) {
         this.scene = scene;
         this.x = x;

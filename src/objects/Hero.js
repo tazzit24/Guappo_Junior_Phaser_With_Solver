@@ -1,6 +1,8 @@
 'use strict';
 
-class Hero extends MovablePiece {
+import { MovablePiece } from './MovablePiece.js';
+
+export class Hero extends MovablePiece {
 
     /** @type {number} */
     order;

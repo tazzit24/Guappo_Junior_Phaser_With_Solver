@@ -1,6 +1,6 @@
 'use strict';
 
-class Button extends Phaser.GameObjects.Text {
+export class Button extends Phaser.GameObjects.Text {
 
     constructor(scene, x, y, text, style, callback) {
       super(scene, x, y, text, style);

@@ -1,6 +1,11 @@
 'use strict';
 /** @type {import('../defs/phaser')} */
 
+import { SceneHome } from './scenes/SceneHome.js';
+import { SceneMain } from './scenes/SceneMain.js';
+import { SceneGameover } from './scenes/SceneGameover.js';
+import { SceneScores } from './scenes/SceneScores.js';
+
 /*var isMobile = navigator.userAgent.indexOf("Mobile");
 if (isMobile == -1) {
     isMobile = navigator.userAgent.indexOf("Tablet");
