@@ -61,6 +61,7 @@ export class SceneMain extends Phaser.Scene {
 
     preload() {
         this.load.text('levels', 'assets/levels/levels.json');
+        this.load.image('boardBackground', 'assets/images/BoardBackground.png');
         this.load.image('vine', 'assets/images/vine.png');
         this.load.image('gap', 'assets/images/gap.png');
         this.load.image('trap', 'assets/images/trap.png');
@@ -259,6 +260,12 @@ export class SceneMain extends Phaser.Scene {
         // Update grid container position
         if (this.gridContainer) {
             this.gridContainer.setPosition(this.gridOffsetX, this.gridOffsetY);
+            
+            // Update background image size (should be the first child of the container)
+            const backgroundImg = this.gridContainer.first;
+            if (backgroundImg) {
+                backgroundImg.setDisplaySize(this.cellSize * this.gridSize, this.cellSize * this.gridSize);
+            }
         }
         
         // Update grid positions and sizes (relative to container)
@@ -433,7 +440,7 @@ export class SceneMain extends Phaser.Scene {
             
             this.controlsContainer.setPosition(containerX, containerY);
 
-                 console.log('Container x/y:' + this.gridContainer.x + '/' + this.gridContainer.y);
+            console.log('Container x/y:' + this.gridContainer.x + '/' + this.gridContainer.y);
             console.log('Grid Continer width/Height:' +  this.gridContainer.width + '/' + this.gridContainer.height);
             
             // Navigation button cluster (centered in container)
@@ -518,6 +525,12 @@ export class SceneMain extends Phaser.Scene {
             this.gridContainer.destroy();
         }
         this.gridContainer = this.add.container(this.gridOffsetX, this.gridOffsetY);
+        
+        // Add background image to the grid container
+        const backgroundImg = this.add.image(0, 0, 'boardBackground');
+        backgroundImg.setOrigin(0, 0);
+        // Size will be set by updateLayout() which is called right after createGrid()
+        this.gridContainer.add(backgroundImg);
         
         // Draw static grid with interactive tooltips
         this.gridCells = [];
@@ -676,6 +689,12 @@ export class SceneMain extends Phaser.Scene {
         // Reposition grid container
         if (this.gridContainer) {
             this.gridContainer.setPosition(this.gridOffsetX, this.gridOffsetY);
+            
+            // Update background image size (should be the first child of the container)
+            const backgroundImg = this.gridContainer.first;
+            if (backgroundImg) {
+                backgroundImg.setDisplaySize(this.cellSize * this.gridSize, this.cellSize * this.gridSize);
+            }
         }
         
         // Reposition grid elements (relative to container)
