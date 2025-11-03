@@ -8,7 +8,7 @@ export class SceneHome extends Phaser.Scene {
     levelsJson;
 
     levelSlider;
-    button_go;
+    button_play;
     button_scores;
     logo;
     
@@ -45,7 +45,7 @@ export class SceneHome extends Phaser.Scene {
         // Logo
         this.logo = this.add.image(centerX, height * 0.15, 'logo').setOrigin(0.5, 0.5);
 
-        // Slider
+        // Slider - création avec config temporaire, sera configuré dans updateLayout
         const levelIds = this.levelsJson.levels.map(lvl => Number(lvl.level)).filter(n => !isNaN(n));
         const minLevelId = Math.min(...levelIds);
         const maxLevelId = Math.max(...levelIds);
@@ -55,39 +55,41 @@ export class SceneHome extends Phaser.Scene {
         }
         let preselectLevel = highestSavedLevel < maxLevelId ? highestSavedLevel + 1 : highestSavedLevel;
         const sliderWidth = width * 0.85;
-        const sliderFontSize = Math.max(Math.min(Math.round(height * 0.05), 32), 16);
+        
+        // Configuration complète avec valeurs par défaut pour l'initialisation
         const sliderConfig = {
             handleTexture: 'wappo',
             textPrefix: 'Level: ',
-            sliderHeight: Math.max(Math.min(Math.round(height * 0.04), 40), 20),
-            handleSize: Math.max(Math.min(Math.round(height * 0.08), 60), 40),
+            sliderHeight: 60,  // Valeur par défaut
+            handleSize: 96,    // Valeur par défaut
             showProgress: true,
             progressColor: 0x4a90e2,
             progressAlpha: 0.3,
             trackColor: 0x1a1a2e,
             textStyle: {
-                fontSize: sliderFontSize + 'px',
+                fontSize: '32px',  // Valeur par défaut
                 fontFamily: '"Arial Black", Gadget, sans-serif',
                 color: '#4a90e2',
                 stroke: '#000000',
-                strokeThickness: Math.max(Math.round(sliderFontSize * 0.1), 2)
+                strokeThickness: 3  // Valeur par défaut
             },
-            textOffset: -Math.max(Math.min(Math.round(height * 0.08), 60), 40)
+            textOffset: -80  // Valeur par défaut
         };
+        
         this.levelSlider = new SpaceSlider(this, centerX, formY, sliderWidth, minLevelId, maxLevelId, preselectLevel, sliderConfig);
 
-        // Continue Button
+        // Play Button
         const buttonFontSize = Math.max(Math.min(Math.round(height * 0.08), 120), 32);
         const buttonY = formY + Math.max(Math.min(Math.round(height * 0.15), 120), 80);
-        this.button_go = new Button(this, centerX, buttonY, 'Continue', {
+        this.button_play = new Button(this, centerX, buttonY, 'Play', {
             color: '#FFFFFF',
             fontSize: buttonFontSize + 'px',
             fontFamily: 'Arial',
             stroke: '#000000',
             strokeThickness: Math.max(Math.round(buttonFontSize * 0.05), 2)
         }, () => this.launchLevel());
-        this.button_go.setOrigin(0.5);
-        this.add.existing(this.button_go);
+        this.button_play.setOrigin(0.5);
+        this.add.existing(this.button_play);
 
         // Scores Button
         const scoresFontSize = Math.max(Math.min(Math.round(height * 0.06), 80), 24);
@@ -109,42 +111,33 @@ export class SceneHome extends Phaser.Scene {
         const { width, height } = this.scale.gameSize;
         this.isLandscape = width > height;
         const centerX = width / 2;
-        const formY = height * 0.5;
+        const formY = height / 2;
 
         // Logo
         this.logo.setPosition(centerX, height * 0.15);
         const logoScale = Math.min(width / 800, height / 600) * 0.75;
         this.logo.setScale(logoScale);
 
-        // Slider
+        // Slider - mise à jour de layout uniquement (tailles/positions)
         const sliderWidth = width * 0.85;
-        const sliderFontSize = Math.max(Math.min(Math.round(height * 0.05), 32), 16);
-        const sliderConfig = {
-            handleTexture: 'wappo',
-            textPrefix: 'Level: ',
-            sliderHeight: Math.max(Math.min(Math.round(height * 0.04), 40), 20),
-            handleSize: Math.max(Math.min(Math.round(height * 0.08), 60), 40),
-            showProgress: true,
-            progressColor: 0x4a90e2,
-            progressAlpha: 0.3,
-            trackColor: 0x1a1a2e,
+        const sliderFontSize = Math.max(Math.min(Math.round(height * 0.05), 120), 24);
+        const sliderLayoutConfig = {
+            sliderHeight: Math.max(Math.min(Math.round(height * 0.04), 120), 60),
+            handleSize: Math.max(Math.min(Math.round(height * 0.06), 145), 95),
             textStyle: {
                 fontSize: sliderFontSize + 'px',
-                fontFamily: '"Arial Black", Gadget, sans-serif',
-                color: '#4a90e2',
-                stroke: '#000000',
                 strokeThickness: Math.max(Math.round(sliderFontSize * 0.1), 2)
             },
-            textOffset: -Math.max(Math.min(Math.round(height * 0.08), 60), 40)
+            textOffset: -Math.max(Math.min(Math.round(height * 0.08), 120), 80)
         };
-        this.levelSlider.resize(centerX, formY, sliderWidth, sliderConfig);
+        this.levelSlider.resize(centerX, formY, sliderWidth, sliderLayoutConfig);
 
-        // Continue Button
+        // Play Button
         const buttonFontSize = Math.max(Math.min(Math.round(height * 0.08), 120), 32);
         const buttonY = formY + Math.max(Math.min(Math.round(height * 0.15), 120), 80);
-        this.button_go.setPosition(centerX, buttonY);
-        this.button_go.setFontSize(buttonFontSize + 'px');
-        this.button_go.setStyle({
+        this.button_play.setPosition(centerX, buttonY);
+        this.button_play.setFontSize(buttonFontSize + 'px');
+        this.button_play.setStyle({
             fontSize: buttonFontSize + 'px',
             fontFamily: 'Arial',
             color: '#FFFFFF',
@@ -178,10 +171,10 @@ export class SceneHome extends Phaser.Scene {
         
         // Explicitly disable interactivity and destroy buttons from the old scene instance
         // Cleanup explicit button variables
-        if (this.btnContinue && this.btnContinue.active) {
-            if (this.btnContinue.disableButtonInteractive) this.btnContinue.disableButtonInteractive();
-            if (this.btnContinue.destroy) this.btnContinue.destroy();
-            this.btnContinue = null;
+        if (this.button_play && this.button_play.active) {
+            if (this.button_play.disableButtonInteractive) this.button_play.disableButtonInteractive();
+            if (this.button_play.destroy) this.button_play.destroy();
+            this.button_play = null;
         }
         if (this.btnLevelSlider && this.btnLevelSlider.active) {
             if (this.btnLevelSlider.disableButtonInteractive) this.btnLevelSlider.disableButtonInteractive();

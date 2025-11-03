@@ -70,12 +70,14 @@ export class SceneMain extends Phaser.Scene {
         this.load.image('friend_1', 'assets/images/friend1.png');
         this.load.image('friend_2', 'assets/images/friend2.png');
         // Charger les ennemis verticaux comme spritesheet avec 2 frames : 0=monte, 1=descend
-        this.load.spritesheet('enemy_V_1', 'assets/images/ev1.png', { frameWidth: 64, frameHeight: 64 });
-        this.load.spritesheet('enemy_V_2', 'assets/images/ev2.png', { frameWidth: 64, frameHeight: 64 });
-        this.load.image('enemy_H_1', 'assets/images/eh1.png');
-        this.load.image('enemy_H_2', 'assets/images/eh2.png');
-        this.load.image('enemy_D_1', 'assets/images/ed1.png');
-        this.load.image('enemy_D_2', 'assets/images/ed2.png');
+        this.load.spritesheet('enemy_V_1', 'assets/images/ev1.png', { frameWidth: 200, frameHeight: 200 });
+        this.load.spritesheet('enemy_V_2', 'assets/images/ev2.png', { frameWidth: 200, frameHeight: 200 });
+        // Charger l'ennemi horizontal 1 comme spritesheet avec 2 frames : 0=droite, 1=gauche
+        this.load.spritesheet('enemy_H_1', 'assets/images/eh1.png', { frameWidth: 200, frameHeight: 200 });
+        this.load.spritesheet('enemy_H_2', 'assets/images/eh2.png', { frameWidth: 200, frameHeight: 200 });
+        // Charger les ennemis diagonaux comme spritesheet avec 4 frames : 0=NO, 1=NE, 2=SE, 3=SO
+        this.load.spritesheet('enemy_D_1', 'assets/images/ed1.png', { frameWidth: 200, frameHeight: 200 });
+        this.load.spritesheet('enemy_D_2', 'assets/images/ed2.png', { frameWidth: 200, frameHeight: 200 });
     }
 
     create() {
@@ -301,7 +303,7 @@ export class SceneMain extends Phaser.Scene {
                 let coords = Utils.getCoords(enemy.getLocation());
                 let x = coords.x * this.cellSize + enemy.getImg().originX * this.cellSize;
                 let y = coords.y * this.cellSize + enemy.getImg().originY * this.cellSize;
-                enemy.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
+                enemy.getImg().setPosition(x, y).setDisplaySize(this.cellSize * 0.5, this.cellSize * 0.5);
             }
         });
         // Update control buttons - just recreate the container with new positions
@@ -617,9 +619,9 @@ export class SceneMain extends Phaser.Scene {
             let enemyCoords = Utils.getCoords(enemy.getLocation());
             let enemyX = enemyCoords.x * this.cellSize; // Position relative to grid container
             let enemyY = enemyCoords.y * this.cellSize; // Position relative to grid container
-            var img_enemy = this.add.image(enemyX, enemyY, 'enemy_' + enemy.getAxis() + "_" + enemy.getStep());
+            var img_enemy = this.add.sprite(enemyX, enemyY, 'enemy_' + enemy.getAxis() + "_" + enemy.getStep());
             img_enemy.setOrigin(0.5, 0.5);
-            img_enemy.setDisplaySize(this.cellSize, this.cellSize);
+            img_enemy.setDisplaySize(this.cellSize * 0.5, this.cellSize * 0.5);
             img_enemy.setInteractive();
             
             img_enemy.on('pointerover', pointer => {
@@ -683,74 +685,6 @@ export class SceneMain extends Phaser.Scene {
             this.fireUserInput(dir);
             this._touchStart = null;
         });
-    }
-
-    repositionElements() {
-        // Reposition grid container
-        if (this.gridContainer) {
-            this.gridContainer.setPosition(this.gridOffsetX, this.gridOffsetY);
-            
-            // Update background image size (should be the first child of the container)
-            const backgroundImg = this.gridContainer.first;
-            if (backgroundImg) {
-                backgroundImg.setDisplaySize(this.cellSize * this.gridSize, this.cellSize * this.gridSize);
-            }
-        }
-        
-        // Reposition grid elements (relative to container)
-        for (let i = 0; i < 36; i++) {
-            if (this.gridCells && this.gridCells[i]) {
-                let coords = Utils.getCoords(i);
-                let x = coords.x * this.cellSize; // Relative to container
-                let y = coords.y * this.cellSize; // Relative to container
-                this.gridCells[i].setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
-            }
-        }
-
-        // Reposition UI text elements with updated font sizes
-        const { width, height } = this.scale.gameSize;
-        const levelFontSize = Math.max(Math.min(Math.round(height * 0.04), 32), 18);
-        const movesFontSize = Math.max(Math.min(Math.round(height * 0.035), 28), 16);
-        
-        if (this.text_level) {
-            this.text_level.setPosition(this.uiAreaX, this.uiAreaY);
-            this.text_level.setFontSize(levelFontSize);
-            this.text_level.setStroke('#000000', Math.max(Math.round(levelFontSize * 0.1), 2));
-        }
-        if (this.text_moves) {
-            this.text_moves.setPosition(this.uiAreaX, this.uiAreaY + levelFontSize + 5);
-            this.text_moves.setFontSize(movesFontSize);
-            this.text_moves.setStroke('#000000', Math.max(Math.round(movesFontSize * 0.1), 2));
-        }
-
-        // Reposition movable pieces (relative to container)
-        if (this.wappo && this.wappo.getImg()) {
-            let coords = Utils.getCoords(this.wappo.getLocation());
-            let x = coords.x * this.cellSize; // Relative to container
-            let y = coords.y * this.cellSize; // Relative to container
-            this.wappo.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
-        }
-
-        this.friends.forEach(friend => {
-            if (friend && friend.getImg()) {
-                let coords = Utils.getCoords(friend.getLocation());
-                let x = coords.x * this.cellSize; // Relative to container
-                let y = coords.y * this.cellSize; // Relative to container
-                friend.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
-            }
-        });
-
-        this.enemies.forEach(enemy => {
-            if (enemy && enemy.getImg()) {
-                let coords = Utils.getCoords(enemy.getLocation());
-                let x = coords.x * this.cellSize + this.cellSize / 2;
-                let y = coords.y * this.cellSize + this.cellSize / 2;
-                enemy.getImg().setPosition(x, y).setDisplaySize(this.cellSize, this.cellSize);
-            }
-        });
-
-        // Recreate buttons with new positions
-        this.createControlButtons();
     }
 
     async fireUserInput(dir) {
@@ -884,42 +818,44 @@ export class SceneMain extends Phaser.Scene {
     }
 
     /**
-     * Updates the visual orientation (flipX, flipY) of an enemy's sprite
-     * to match its current direction.
+     * Updates the visual orientation of an enemy's sprite
+     * to match its current direction using sprite frames.
      */
     updateEnemyImageDirection(enemy, forcedDir) {
         const img = enemy.getImg();
         if (!img) return;
 
-        img.flipX = false;
-        img.flipY = false;
-
         const dir = forcedDir || enemy.getDirection();
         const axis = enemy.getAxis();
 
         if (axis === 'H') {
+            // Frame 0 = droite (EAST), Frame 1 = gauche (WEST)
             if (dir === Enum.DIRECTION.WEST) {
-                img.flipX = true;
+                img.setFrame(1);
+            } else {
+                img.setFrame(0);
             }
         } else if (axis === 'V') {
-            // Pour les ennemis verticaux, utiliser les frames du spritesheet
             // Frame 0 = monte (NORTH), Frame 1 = descend (SOUTH)
             if (dir === Enum.DIRECTION.SOUTH) {
-                img.setFrame(1); // Frame pour descendre
+                img.setFrame(1);
             } else {
-                img.setFrame(0); // Frame pour monter
+                img.setFrame(0);
             }
         } else if (axis === 'D') {
+            // Frame 0 = NO, Frame 1 = NE, Frame 2 = SE, Frame 3 = SO
             switch (dir) {
-                case Enum.DIRECTION.NORTH_EAST:
-                    img.flipX = true;
+                case Enum.DIRECTION.NORTH_WEST:
+                    img.setFrame(0);
                     break;
-                case Enum.DIRECTION.SOUTH_WEST:
-                    img.flipY = true;
+                case Enum.DIRECTION.NORTH_EAST:
+                    img.setFrame(1);
                     break;
                 case Enum.DIRECTION.SOUTH_EAST:
-                    img.flipX = true;
-                    img.flipY = true;
+                    img.setFrame(2);
+                    break;
+                case Enum.DIRECTION.SOUTH_WEST:
+                    img.setFrame(3);
                     break;
             }
         }

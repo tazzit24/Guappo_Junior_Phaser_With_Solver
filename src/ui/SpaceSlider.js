@@ -314,6 +314,11 @@ export class SpaceSlider {
         // Update configuration with new values
         Object.assign(this.config, config);
 
+        // Update text style if provided
+        if (this.components.text && config.textStyle) {
+            this.components.text.setStyle(config.textStyle);
+        }
+
         // Update track
         if (this.components.track) {
             this.drawTrack();

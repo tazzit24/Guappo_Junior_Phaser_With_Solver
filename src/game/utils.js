@@ -30,13 +30,13 @@ export class Utils {
         const dialogScale = Math.min(width / 400, height / 300);
         
         var dialog = scene.rexUI.add.dialog({
-            background: scene.rexUI.add.roundRectangle(0, 0, 300 * dialogScale, 200 * dialogScale, 20, 0xFFBF00),
+            background: scene.rexUI.add.roundRectangle(0, 0, 300 * dialogScale, 200 * dialogScale, 20, 0x1a1a2e),
 
             title: scene.rexUI.add.label({
-                background: scene.rexUI.add.roundRectangle(0, 0, 100, 40, 20, 0xF28C28),
+                background: scene.rexUI.add.roundRectangle(0, 0, 100, 40, 20, 0x4a90e2),
                 text: scene.add.text(0, 0, 'Confirm', {
                     fontSize: Math.max(18 * dialogScale, 16) + 'px',
-                    color: '#000000'
+                    color: '#FFFFFF'
                 }),
                 space: {
                     left: 15,
@@ -48,7 +48,7 @@ export class Utils {
 
             content: scene.add.text(0, 0, 'Exit Level ?', {
                 fontSize: Math.max(18 * dialogScale, 14) + 'px',
-                color: '#000000'
+                color: '#FFFFFF'
             }),
 
             actions: [
@@ -90,11 +90,11 @@ export class Utils {
             // width: 40,
             // height: 40,
 
-            background: scene.rexUI.add.roundRectangle(0, 0, 0, 0, 20, 0xDAA520),
+            background: scene.rexUI.add.roundRectangle(0, 0, 0, 0, 20, 0x4a90e2),
 
             text: scene.add.text(0, 0, text, {
                 fontSize: Math.max(18 * scale, 14) + 'px',
-                color: '#000000'
+                color: '#FFFFFF'
             }),
 
             space: {
