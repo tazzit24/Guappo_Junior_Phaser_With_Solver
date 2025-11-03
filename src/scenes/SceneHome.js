@@ -1,7 +1,7 @@
 import { SceneMain } from './SceneMain.js';
 import { Level } from '../game/Level.js';
-import { Button } from '../ui/Button.js';
 import { SpaceSlider } from '../ui/SpaceSlider.js';
+import { MyRexUIButton } from '../ui/MyRexUIButton.js';
 import { SaveGameHelper } from '../game/SaveGameHelper.js';
 
 export class SceneHome extends Phaser.Scene {
@@ -23,6 +23,8 @@ export class SceneHome extends Phaser.Scene {
         this.load.text('levels', 'assets/levels/levels.json');
         this.load.image('logo', 'assets/images/Guappo_Junior_logo.png');
         this.load.image('wappo', 'assets/images/wappo.png'); // Bear head for slider bullet
+        this.load.image('medal_icon', 'assets/images/medal.png');
+        this.load.image('play_circle_icon', 'assets/images/play_circle.png');
     }
 
     create() {
@@ -55,7 +57,7 @@ export class SceneHome extends Phaser.Scene {
         }
         let preselectLevel = highestSavedLevel < maxLevelId ? highestSavedLevel + 1 : highestSavedLevel;
         const sliderWidth = width * 0.85;
-        
+
         // Configuration complète avec valeurs par défaut pour l'initialisation
         const sliderConfig = {
             handleTexture: 'wappo',
@@ -75,34 +77,12 @@ export class SceneHome extends Phaser.Scene {
             },
             textOffset: -80  // Valeur par défaut
         };
-        
+
         this.levelSlider = new SpaceSlider(this, centerX, formY, sliderWidth, minLevelId, maxLevelId, preselectLevel, sliderConfig);
 
-        // Play Button
-        const buttonFontSize = Math.max(Math.min(Math.round(height * 0.08), 120), 32);
-        const buttonY = formY + Math.max(Math.min(Math.round(height * 0.15), 120), 80);
-        this.button_play = new Button(this, centerX, buttonY, 'Play', {
-            color: '#FFFFFF',
-            fontSize: buttonFontSize + 'px',
-            fontFamily: 'Arial',
-            stroke: '#000000',
-            strokeThickness: Math.max(Math.round(buttonFontSize * 0.05), 2)
-        }, () => this.launchLevel());
-        this.button_play.setOrigin(0.5);
-        this.add.existing(this.button_play);
-
-        // Scores Button
-        const scoresFontSize = Math.max(Math.min(Math.round(height * 0.06), 80), 24);
-        const scoresButtonY = buttonY + Math.max(Math.min(Math.round(height * 0.12), 100), 60);
-        this.button_scores = new Button(this, centerX, scoresButtonY, 'Scores', {
-            color: '#4a90e2',
-            fontSize: scoresFontSize + 'px',
-            fontFamily: 'Arial',
-            stroke: '#000000',
-            strokeThickness: Math.max(Math.round(scoresFontSize * 0.05), 2)
-        }, () => this.openScores());
-        this.button_scores.setOrigin(0.5);
-        this.add.existing(this.button_scores);
+        // Boutons : encapsulation RexUI
+        this.button_play = new MyRexUIButton(this, 'Play', 'play_circle_icon', () => this.launchLevel());
+        this.button_scores = new MyRexUIButton(this, 'Scores', 'medal_icon', () => this.openScores());
 
         this.updateLayout();
     }
@@ -132,31 +112,20 @@ export class SceneHome extends Phaser.Scene {
         };
         this.levelSlider.resize(centerX, formY, sliderWidth, sliderLayoutConfig);
 
-        // Play Button
-        const buttonFontSize = Math.max(Math.min(Math.round(height * 0.08), 120), 32);
-        const buttonY = formY + Math.max(Math.min(Math.round(height * 0.15), 120), 80);
-        this.button_play.setPosition(centerX, buttonY);
-        this.button_play.setFontSize(buttonFontSize + 'px');
-        this.button_play.setStyle({
-            fontSize: buttonFontSize + 'px',
-            fontFamily: 'Arial',
-            color: '#FFFFFF',
-            stroke: '#000000',
-            strokeThickness: Math.max(Math.round(buttonFontSize * 0.05), 2)
-        });
+        // Play & Scores buttons (mise en forme et positionnement)
+        const buttonFontSize = Math.max(Math.min(Math.round(height * 0.08), 128), 32);
+        const buttonWidth = Math.max(Math.min(width * 0.55, 720), 520);
+        const buttonHeight = Math.round(buttonFontSize * 1.4);
+        const buttonSpacing = Math.max(Math.round(buttonFontSize * 0.3), 24);
+        const verticalOffset = Math.max(Math.min(Math.round(height * 0.25), 180), 130);
+        const leftX = centerX - buttonWidth / 2;
+        const firstButtonCenterY = formY + verticalOffset;
 
-        // Scores Button
-        const scoresFontSize = Math.max(Math.min(Math.round(height * 0.06), 80), 24);
-        const scoresButtonY = buttonY + Math.max(Math.min(Math.round(height * 0.12), 100), 60);
-        this.button_scores.setPosition(centerX, scoresButtonY);
-        this.button_scores.setFontSize(scoresFontSize + 'px');
-        this.button_scores.setStyle({
-            fontSize: scoresFontSize + 'px',
-            fontFamily: 'Arial',
-            color: '#4a90e2',
-            stroke: '#000000',
-            strokeThickness: Math.max(Math.round(scoresFontSize * 0.05), 2)
-        });
+        this.button_play.refreshLayout(buttonFontSize, buttonWidth, buttonHeight);
+        this.button_scores.refreshLayout(buttonFontSize, buttonWidth, buttonHeight);
+
+        this.button_play.setPosition(leftX, firstButtonCenterY);
+        this.button_scores.setPosition(leftX, firstButtonCenterY + buttonHeight + buttonSpacing);
     }
     
     handleResize() {
@@ -171,9 +140,8 @@ export class SceneHome extends Phaser.Scene {
         
         // Explicitly disable interactivity and destroy buttons from the old scene instance
         // Cleanup explicit button variables
-        if (this.button_play && this.button_play.active) {
-            if (this.button_play.disableButtonInteractive) this.button_play.disableButtonInteractive();
-            if (this.button_play.destroy) this.button_play.destroy();
+        if (this.button_play) {
+            this.button_play.destroy();
             this.button_play = null;
         }
         if (this.btnLevelSlider && this.btnLevelSlider.active) {
@@ -196,9 +164,8 @@ export class SceneHome extends Phaser.Scene {
         }
 
         // Clean up scores button
-        if (this.button_scores && this.button_scores.active) {
-            if (this.button_scores.disableButtonInteractive) this.button_scores.disableButtonInteractive();
-            if (this.button_scores.destroy) this.button_scores.destroy();
+        if (this.button_scores) {
+            this.button_scores.destroy();
             this.button_scores = null;
         }
         
