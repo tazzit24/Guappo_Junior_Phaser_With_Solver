@@ -3,11 +3,14 @@
 import { Level } from '../game/Level.js';
 import { GameLogic } from '../game/GameLogic.js';
 import { Button } from '../ui/Button.js';
+import { DragFeedback } from '../ui/DragFeedback.js';
 import { Enum } from '../game/Enum.js';
 import { Utils } from '../game/Utils.js';
 import { Enemy } from '../objects/Enemy.js';
 import { Solver } from '../solver/Solver.js';
 import { SaveGameHelper } from '../game/SaveGameHelper.js';
+import { IconButton } from '../ui/IconButton.js';
+import { SolverDialog } from '../ui/SolverDialog.js';
 
 export class SceneMain extends Phaser.Scene {
 
@@ -26,7 +29,6 @@ export class SceneMain extends Phaser.Scene {
     btnHome = null;
     btnMusic = null;
     btnReload = null;
-    btnSolve = null;
     btnPrev = null;
     btnNext = null;
 
@@ -34,10 +36,66 @@ export class SceneMain extends Phaser.Scene {
     controlsContainer = null; // Container for the control buttons
     uiContainer = null; // Container for the UI elements
     gridContainer = null; // Container for the grid and pieces
+    headerBackground = null; // Background for the header area in portrait mode
+    homeIcon = null; // Home icon button
+    reloadIcon = null; // Reload icon button
+    musicIcon = null; // Music icon button
+    hintIcon = null; // Hint icon button
 
     joystick_dir; // Joystick for directional input
     isAnimating = false; // Flag to prevent input during animation
     musicEnabled = true; // Music state
+    inputDisabled = false; // Flag to prevent all input during solver calculation
+
+    // Utility methods to centralize control management
+    disableAllControls() {
+        [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnPrev, this.btnNext].forEach(btn => {
+            if (btn && btn.disableButtonInteractive) btn.disableButtonInteractive();
+        });
+        if (this.homeIcon) this.homeIcon.setEnabled(false);
+        if (this.reloadIcon) this.reloadIcon.setEnabled(false);
+        if (this.musicIcon) this.musicIcon.setEnabled(false);
+        if (this.hintIcon) this.hintIcon.setEnabled(false);
+        this.dragFeedbackEnabled = false;
+    }
+
+    enableAllControls() {
+        [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnPrev, this.btnNext].forEach(btn => {
+            if (btn && btn.enableButtonInteractive) btn.enableButtonInteractive();
+        });
+        if (this.homeIcon) this.homeIcon.setEnabled(true);
+        if (this.reloadIcon) this.reloadIcon.setEnabled(true);
+        if (this.musicIcon) this.musicIcon.setEnabled(true);
+        if (this.hintIcon) this.hintIcon.setEnabled(true);
+        this.dragFeedbackEnabled = true;
+    }
+
+    /**
+     * Helper method to show a modal dialog and automatically manage input blocking.
+     * Disables all controls before showing the modal and re-enables them after it closes.
+     * @param {Function} dialogCreator - Function that creates and returns the dialog
+     * @returns {Promise} - Promise that resolves when the modal closes
+     */
+    showModalDialog(dialogCreator) {
+        // Disable ALL input during modal
+        this.inputDisabled = true;
+        this.disableAllControls();
+        
+        const dialog = dialogCreator();
+        
+        return dialog.modalPromise({
+            manualClose: true,
+            duration: {
+                in: 500,
+                out: 500
+            }
+        }).then((data) => {
+            // Re-enable ALL input after modal closes
+            this.inputDisabled = false;
+            this.enableAllControls();
+            return data;
+        });
+    }
     
     // Responsive layout properties
     gridSize = 6;
@@ -50,6 +108,8 @@ export class SceneMain extends Phaser.Scene {
     uiAreaY = 0;
     isLandscape = false;
     gridCells = [];
+    dragFeedback = null;
+    dragFeedbackEnabled = true;
 
     constructor() {
         super('SceneMain');
@@ -78,6 +138,12 @@ export class SceneMain extends Phaser.Scene {
         // Charger les ennemis diagonaux comme spritesheet avec 4 frames : 0=NO, 1=NE, 2=SE, 3=SO
         this.load.spritesheet('enemy_D_1', 'assets/images/ed1.png', { frameWidth: 200, frameHeight: 200 });
         this.load.spritesheet('enemy_D_2', 'assets/images/ed2.png', { frameWidth: 200, frameHeight: 200 });
+        // Load icon images for header buttons
+        this.load.image('home', 'assets/images/home.png');
+        this.load.image('replay', 'assets/images/replay.png');
+        this.load.image('volume_on', 'assets/images/volume_on.png');
+        this.load.image('volume_off', 'assets/images/volume_off.png');
+        this.load.image('hint', 'assets/images/hint.png');
     }
 
     create() {
@@ -124,6 +190,8 @@ export class SceneMain extends Phaser.Scene {
             backgroundColor: '#222',
             padding: { x: 8, y: 4 }
         }).setDepth(1000).setVisible(false);
+
+    this.dragFeedback = new DragFeedback(this, 950);
         // Control buttons
         this.createControlButtons();
         // Input
@@ -137,6 +205,7 @@ export class SceneMain extends Phaser.Scene {
         const gameWidth = this.scale.gameSize.width;
         const gameHeight = this.scale.gameSize.height;
         this.isLandscape = gameWidth > gameHeight;
+        const offsetY = this.isLandscape ? 0 : gameHeight * 0.05; // Shift elements down by 5% of height only in portrait mode
         // Calculate cell size based on available space
         const topPadding = 20;
         const gridPadding = 10;
@@ -151,25 +220,25 @@ export class SceneMain extends Phaser.Scene {
             // Center grid horizontally
             const gridTotalWidth = this.cellSize * this.gridSize;
             this.gridOffsetX = (gameWidth - gridTotalWidth) / 2;
-            this.gridOffsetY = (gameHeight - (this.cellSize * this.gridSize)) / 2;
+            this.gridOffsetY = (gameHeight - (this.cellSize * this.gridSize)) / 2 + offsetY;
             // UI area in landscape (left of grid)
             this.uiAreaX = this.gridOffsetX - sideAreaWidth + 10; // 10px padding from left edge of UI area
-            this.uiAreaY = 20;
+            this.uiAreaY = 20 + offsetY;
             // Controls area in landscape (right of grid)
             this.controlsAreaX = this.gridOffsetX + gridTotalWidth + sideAreaWidth / 2;
-            this.controlsAreaY = gameHeight / 2;
+            this.controlsAreaY = gameHeight / 2 + offsetY;
         } else {
             // Portrait: controls at the bottom, UI at top
             const availableGridWidth = gameWidth - gridPadding * 2;
             const availableGridHeight = gameHeight - controlsSpace - uiHeaderSpace - gridPadding * 2;
             this.cellSize = Math.min(availableGridWidth / this.gridSize, availableGridHeight / this.gridSize);
             this.gridOffsetX = (gameWidth - (this.cellSize * this.gridSize)) / 2;
-            this.gridOffsetY = uiHeaderSpace + topPadding;
+            this.gridOffsetY = uiHeaderSpace + topPadding + offsetY;
             this.controlsAreaX = gameWidth / 2;
             this.controlsAreaY = this.gridOffsetY + (this.cellSize * this.gridSize) + topPadding * 4; // More space for two button rows
             // UI area in portrait (top left)
             this.uiAreaX = 10;
-            this.uiAreaY = 10;
+            this.uiAreaY = 10 + offsetY;
         }
     }
 
@@ -228,19 +297,21 @@ export class SceneMain extends Phaser.Scene {
         }
         // Set position, alignment, and origin based on orientation
         if (!this.isLandscape) {
-            // Portrait mode: labels just above grid corners
+            // Portrait mode: labels in the header area (top left)
             if (this.text_level) {
-                const gridTopLeftX = this.gridOffsetX;
-                const gridTopLeftY = this.gridOffsetY - margin_topInfos;
-                this.text_level.setPosition(gridTopLeftX, gridTopLeftY);
-                this.text_level.setOrigin(0, 1);
+                const headerHeight = height * 0.05;
+                const leftMargin = 10;
+                // Position level text at top of header
+                this.text_level.setPosition(leftMargin, headerHeight * 0.25);
+                this.text_level.setOrigin(0, 0.5);
             }
             if (this.text_moves) {
-                const gridTopRightX = this.gridOffsetX + this.cellSize * this.gridSize;
-                const gridTopLeftY = this.gridOffsetY - margin_topInfos;
-                this.text_moves.setPosition(gridTopRightX, gridTopLeftY);
-                this.text_moves.setOrigin(1, 1);
-                this.text_moves.setAlign('right');
+                const headerHeight = height * 0.05;
+                const leftMargin = 10;
+                // Position moves text at bottom of header
+                this.text_moves.setPosition(leftMargin, headerHeight * 0.75);
+                this.text_moves.setOrigin(0, 0.5);
+                this.text_moves.setAlign('left');
             }
         } else {
             // Landscape mode: labels positioned on the left of the grid
@@ -308,6 +379,24 @@ export class SceneMain extends Phaser.Scene {
         });
         // Update control buttons - just recreate the container with new positions
         this.createControlButtons();
+
+        // Update header background in portrait mode
+        if (!this.isLandscape) {
+            const offsetY = height * 0.05;
+            if (!this.headerBackground) {
+                this.headerBackground = this.add.graphics();
+                this.headerBackground.setDepth(-1); // Behind other elements
+            }
+            this.headerBackground.clear();
+            this.headerBackground.fillStyle(0x0b1c2b, 0.8); // Dark blue with some transparency
+            this.headerBackground.fillRoundedRect(0, 0, width, offsetY, 15); // Rounded rectangle covering the top area
+        } else {
+            // Destroy header background in landscape mode
+            if (this.headerBackground) {
+                this.headerBackground.destroy();
+                this.headerBackground = null;
+            }
+        }
     }
 
     createUI() {
@@ -354,6 +443,38 @@ export class SceneMain extends Phaser.Scene {
             this.controlsContainer = null;
         }
         
+        // Always destroy existing header buttons (they are added directly to scene)
+        if (this.btnHome && this.btnHome.scene) {
+            this.btnHome.destroy();
+            this.btnHome = null;
+        }
+        if (this.btnReload && this.btnReload.scene) {
+            this.btnReload.destroy();
+            this.btnReload = null;
+        }
+        if (this.btnMusic && this.btnMusic.scene) {
+            this.btnMusic.destroy();
+            this.btnMusic = null;
+        }
+        
+        // Destroy icon buttons
+        if (this.homeIcon) {
+            this.homeIcon.destroy();
+            this.homeIcon = null;
+        }
+        if (this.reloadIcon) {
+            this.reloadIcon.destroy();
+            this.reloadIcon = null;
+        }
+        if (this.musicIcon) {
+            this.musicIcon.destroy();
+            this.musicIcon = null;
+        }
+        if (this.hintIcon) {
+            this.hintIcon.destroy();
+            this.hintIcon = null;
+        }
+        
         // Clear button references
         this.btnUp = null;
         this.btnDown = null;
@@ -362,7 +483,6 @@ export class SceneMain extends Phaser.Scene {
         this.btnHome = null;
         this.btnMusic = null;
         this.btnReload = null;
-        this.btnSolve = null;
         this.btnPrev = null;
         this.btnNext = null;
 
@@ -398,6 +518,12 @@ export class SceneMain extends Phaser.Scene {
             strokeThickness: Math.max(Math.round(regularButtonFontSize * 0.08), 2)
         };
 
+        // Create icon buttons (always, before orientation-specific code)
+        this.homeIcon = new IconButton(this, ['home'], 0, 0, 1.0, () => this.fireGoHome());
+        this.reloadIcon = new IconButton(this, ['replay'], 0, 0, 1.0, () => this.reloadLevel());
+        this.musicIcon = new IconButton(this, ['volume_on', 'volume_off'], 0, 0, 1.0, () => this.toggleMusic());
+        this.hintIcon = new IconButton(this, ['hint'], 0, 0, 1.0, () => this.runSolver());
+
         if (this.isLandscape) {
             // Landscape layout - controls on right of grid
             const sideAreaWidth = Math.max(width * 0.18, 120);
@@ -410,29 +536,38 @@ export class SceneMain extends Phaser.Scene {
             this.btnLeft = this.createButton(-navBtnSpacing * 0.6, -navBtnSpacing * 0.5, '←', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.WEST));
             this.btnRight = this.createButton(navBtnSpacing * 0.6, -navBtnSpacing * 0.5, '→', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.EAST));
             this.btnDown = this.createButton(0, navBtnSpacing * 0.5, '↓', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.SOUTH));
-            // Home and Music buttons at grid boundaries
-            const gridTopY = this.gridOffsetY;
-            const gridBottomY = this.gridOffsetY + (this.cellSize * this.gridSize);
-            this.btnHome = this.createButton(0, gridTopY - containerY, 'HOME', regularButtonStyle, () => this.fireGoHome());
-            this.btnHome.setOrigin(0.5, 0);
-            // Reload button just below Home button
-            const reloadY = gridTopY - containerY + regularBtnSize + 10;
-            this.btnReload = this.createButton(0, reloadY, 'RELOAD', regularButtonStyle, () => this.reloadLevel());
-            this.btnReload.setOrigin(0.5, 0);
-            // Solve button just below Reload button
-            const solveY = reloadY + regularBtnSize + 10;
-            this.btnSolve = this.createButton(0, solveY, 'SOLVE', regularButtonStyle, () => this.runSolver());
-            this.btnSolve.setOrigin(0.5, 0);
-            this.btnMusic = this.createButton(0, gridBottomY - containerY, this.musicEnabled ? 'MUSIC ON' : 'MUSIC OFF', regularButtonStyle, () => this.toggleMusic());
-            this.btnMusic.setOrigin(0.5, 1);
-            // Add all buttons to container
+            
+            // Solve button just below navigation
+            const solveY = navBtnSpacing * 0.5 + regularBtnSize + 10;
+            // this.btnSolve = this.createButton(0, solveY, 'SOLVE', regularButtonStyle, () => this.runSolver());
+            // this.btnSolve.setOrigin(0.5, 0);
+            
+            // Add navigation buttons to container
             this.controlsContainer.add([
-                this.btnUp, this.btnLeft, this.btnRight, this.btnDown,
-                this.btnHome, this.btnReload, this.btnSolve, this.btnMusic
+                this.btnUp, this.btnLeft, this.btnRight, this.btnDown
+                // this.btnSolve
             ]);
             // Hidden buttons
             this.btnPrev = this.createHiddenButton('PREV', () => this.fireChangeLevel(-1));
             this.btnNext = this.createHiddenButton('NEXT', () => this.fireChangeLevel(1));
+            
+            // Position icons for landscape
+            const gridTopY = this.gridOffsetY;
+            const displayedIconHeight = this.homeIcon.img.height * this.homeIcon.img.scaleY;
+            const iconSpacing = 10;
+            let currentY = gridTopY;
+
+            // Position icons vertically in the same column
+            this.homeIcon.img.setPosition(containerX, currentY);
+            currentY += displayedIconHeight + iconSpacing;
+
+            this.reloadIcon.img.setPosition(containerX, currentY);
+            currentY += displayedIconHeight + iconSpacing;
+
+            this.musicIcon.img.setPosition(containerX, currentY);
+            currentY += displayedIconHeight + iconSpacing;
+
+            this.hintIcon.img.setPosition(containerX, currentY);
         } else {
             // Portrait layout - create bottom container for controls
             const gridBottomY = this.gridOffsetY + (this.cellSize * this.gridSize);
@@ -442,9 +577,6 @@ export class SceneMain extends Phaser.Scene {
             
             this.controlsContainer.setPosition(containerX, containerY);
 
-            console.log('Container x/y:' + this.gridContainer.x + '/' + this.gridContainer.y);
-            console.log('Grid Continer width/Height:' +  this.gridContainer.width + '/' + this.gridContainer.height);
-            
             // Navigation button cluster (centered in container)
             const navClusterHeight = navBtnSpacing * 1.6;
             const navClusterCenterY = navClusterHeight / 2;
@@ -455,50 +587,43 @@ export class SceneMain extends Phaser.Scene {
             this.btnRight = this.createButton(navBtnSpacing, navClusterCenterY, '→', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.EAST));
             this.btnDown = this.createButton(0, navClusterCenterY + navBtnSpacing * 0.8, '↓', navButtonStyle, () => this.fireUserInput(Enum.DIRECTION.SOUTH));
             
-            // Home and Music buttons positioned at bottom of container
+            // Solve button remains in the bottom controls
             const bottomRowSpacing = Math.max(this.cellSize * 0.4, 25);
             const bottomRowY = navClusterHeight + bottomRowSpacing;
-            
-            // Calculate positions relative to grid boundaries but ensure they stay within screen bounds
             const gridLeftX = this.gridOffsetX;
             const gridRightX = this.gridOffsetX + (this.cellSize * this.gridSize);
             const containerCenterX = containerX; // Container center position
-            
-            // Calculate ideal positions aligned with grid edges
-            const idealHomeX = gridLeftX - containerCenterX; // Offset from container center to grid left
-            const idealMusicX = gridRightX - containerCenterX; // Offset from container center to grid right
-            
-            // Ensure buttons stay within screen bounds with some margin
-            const screenMargin = 20; // Minimum margin from screen edge
-            const maxLeftX = screenMargin - containerCenterX; // Leftmost position relative to container
-            const maxRightX = (width - screenMargin) - containerCenterX; // Rightmost position relative to container
-            
-            // Clamp positions to screen bounds
-            const homeX = Math.max(idealHomeX, maxLeftX);
-            const musicX = Math.min(idealMusicX, maxRightX);
-            // Reload button centered between Home and Music
-            const reloadX = (homeX + musicX) / 2;
-            this.btnHome = this.createButton(homeX, bottomRowY, 'HOME', regularButtonStyle, () => this.fireGoHome());
-            this.btnHome.setOrigin(0, 0.5);
-            this.btnReload = this.createButton(reloadX, bottomRowY, 'RELOAD', regularButtonStyle, () => this.reloadLevel());
-            this.btnReload.setOrigin(0.5, 0.5);
-            this.btnMusic = this.createButton(musicX, bottomRowY, this.musicEnabled ? 'MUSIC ON' : 'MUSIC OFF', regularButtonStyle, () => this.toggleMusic());
-            this.btnMusic.setOrigin(1, 0.5);
-            
-            // Solve button below Reload button (second row)
+            const reloadX = (gridLeftX - containerCenterX + gridRightX - containerCenterX) / 2;
             const secondRowY = bottomRowY + regularBtnSize + 10;
-            this.btnSolve = this.createButton(reloadX, secondRowY, 'SOLVE', regularButtonStyle, () => this.runSolver());
-            this.btnSolve.setOrigin(0.5, 0.5);
+            // this.btnSolve = this.createButton(reloadX, secondRowY, 'SOLVE', regularButtonStyle, () => this.runSolver());
+            // this.btnSolve.setOrigin(0.5, 0.5);
 
-            // Add all buttons to container
+            // Add navigation buttons to container
             this.controlsContainer.add([
-                this.btnUp, this.btnLeft, this.btnRight, this.btnDown,
-                this.btnHome, this.btnReload, this.btnSolve, this.btnMusic
+                this.btnUp, this.btnLeft, this.btnRight, this.btnDown
+                // this.btnSolve
             ]);
             
             // Hidden buttons
             this.btnPrev = this.createHiddenButton('PREV', () => this.fireChangeLevel(-1));
             this.btnNext = this.createHiddenButton('NEXT', () => this.fireChangeLevel(1));
+            
+            // Position icons for portrait
+            const headerHeight = height * 0.05;
+            const headerButtonY = headerHeight / 2;
+            const displayedIconWidth = this.homeIcon.img.width * this.homeIcon.img.scaleX;
+            
+            // Position music icon at right edge with margin
+            this.musicIcon.img.setPosition(width - displayedIconWidth / 2, headerButtonY);
+            
+            // Align reload icon to the left of music with spacing
+            Phaser.Display.Align.To.LeftCenter(this.reloadIcon.img, this.musicIcon.img, displayedIconWidth);
+            
+            // Align home icon to the left of reload with spacing
+            Phaser.Display.Align.To.LeftCenter(this.homeIcon.img, this.reloadIcon.img, displayedIconWidth);
+            
+            // Align hint icon to the left of home with spacing
+            Phaser.Display.Align.To.LeftCenter(this.hintIcon.img, this.homeIcon.img, displayedIconWidth);
         }
     }
 
@@ -506,6 +631,13 @@ export class SceneMain extends Phaser.Scene {
         const button = new Button(this, x, y, text, style, callback);
         button.setOrigin(0.5, 0.5); // Center the button text
         // Don't add to scene directly - will be added to container
+        return button;
+    }
+
+    createHeaderButton(x, y, text, style, callback) {
+        const button = new Button(this, x, y, text, style, callback);
+        button.setOrigin(0.5, 0.5); // Center the button text
+        this.add.existing(button); // Add directly to scene
         return button;
     }
 
@@ -661,11 +793,37 @@ export class SceneMain extends Phaser.Scene {
         });
 
         // Détection du swipe tactile pour mobile
+        const cancelDragFeedback = pointer => {
+            if (!this.dragFeedbackEnabled) return;
+            if (this.dragFeedback) {
+                this.dragFeedback.end(pointer);
+            }
+            this._touchStart = null;
+        };
+
         this.input.on('pointerdown', pointer => {
+            if (!this.dragFeedbackEnabled) return;
+            // Prevent drag feedback from starting in the header area (portrait mode)
+            if (!this.isLandscape && pointer.y <= this.scale.gameSize.height * 0.05) return;
             this._touchStart = { x: pointer.x, y: pointer.y };
+            if (this.dragFeedback) {
+                this.dragFeedback.begin(pointer);
+            }
+        });
+        this.input.on('pointermove', pointer => {
+            if (!this.dragFeedbackEnabled) return;
+            if (this._touchStart && this.dragFeedback) {
+                this.dragFeedback.update(pointer);
+            }
         });
         this.input.on('pointerup', pointer => {
-            if (!this._touchStart) return;
+            if (!this.dragFeedbackEnabled) return;
+            if (this.dragFeedback) {
+                this.dragFeedback.end(pointer);
+            }
+            if (!this._touchStart) {
+                return;
+            }
             const dx = pointer.x - this._touchStart.x;
             const dy = pointer.y - this._touchStart.y;
             const absDx = Math.abs(dx);
@@ -685,22 +843,24 @@ export class SceneMain extends Phaser.Scene {
             this.fireUserInput(dir);
             this._touchStart = null;
         });
+        this.input.on('pointerupoutside', cancelDragFeedback);
+        this.input.on('pointercancel', cancelDragFeedback);
+        this.input.on('gameout', cancelDragFeedback);
     }
 
     async fireUserInput(dir) {
-        if (this.isAnimating) {
-            console.log("Animation in progress, ignoring input.");
+        if (this.isAnimating || this.inputDisabled) {
+            console.log("Input disabled, ignoring input.");
             return;
         }
 
         this.isAnimating = true;
         // Disable all buttons during animation
-        [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
-            if (btn && btn.disableButtonInteractive) btn.disableButtonInteractive();
-        });
+        this.disableAllControls();
 
         // Run game logic and get status
-        const gameStatus = this.gameLogic.simulateTurn(dir);
+        // Always save score for actual player moves (not solver simulations)
+        const gameStatus = this.gameLogic.simulateTurn(dir, true);
         
         // IMPORTANT: Toujours animer les mouvements avant de terminer le tour
         // Pour que les animations se déroulent correctement avant d'afficher les messages
@@ -708,9 +868,7 @@ export class SceneMain extends Phaser.Scene {
         
         // Pour les tours normaux, on active les inputs
         if (!gameStatus.isWon && !gameStatus.isLost) {
-            [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
-                if (btn && btn.enableButtonInteractive) btn.enableButtonInteractive();
-            });
+            this.enableAllControls();
             this.isAnimating = false;
         } else {
             // Pour les fins de jeu (victoire/défaite), on lance les événements
@@ -733,9 +891,7 @@ export class SceneMain extends Phaser.Scene {
             }
             
             // Assurez-vous que les contrôles sont réactivés après la fin du jeu
-            [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
-                if (btn && btn.enableButtonInteractive) btn.enableButtonInteractive();
-            });
+            this.enableAllControls();
             this.isAnimating = false;
         }
     }
@@ -888,6 +1044,26 @@ export class SceneMain extends Phaser.Scene {
             this.gridContainer.destroy();
             this.gridContainer = null;
         }
+
+        // Destroy header background
+        if (this.headerBackground) {
+            this.headerBackground.destroy();
+            this.headerBackground = null;
+        }
+        
+        // Destroy icon buttons
+        if (this.homeIcon) {
+            this.homeIcon.destroy();
+            this.homeIcon = null;
+        }
+        if (this.reloadIcon) {
+            this.reloadIcon.destroy();
+            this.reloadIcon = null;
+        }
+        if (this.musicIcon) {
+            this.musicIcon.destroy();
+            this.musicIcon = null;
+        }
         
         // Cleanup event listeners when scene shuts down
         if (this.gameLogic) {
@@ -905,7 +1081,6 @@ export class SceneMain extends Phaser.Scene {
         this.btnHome = null;
         this.btnMusic = null;
         this.btnReload = null;
-        this.btnSolve = null;
         this.btnPrev = null;
         this.btnNext = null;
 
@@ -916,6 +1091,12 @@ export class SceneMain extends Phaser.Scene {
             this.cursors.right.off('down');
         }
         this.cursors = null;
+
+        if (this.dragFeedback) {
+            this.dragFeedback.destroy();
+            this.dragFeedback = null;
+        }
+        this._touchStart = null;
         
         // Clear refs but don't destroy game objects owned by GameLogic
         this.wappo = null;
@@ -943,9 +1124,9 @@ export class SceneMain extends Phaser.Scene {
         this.musicEnabled = !this.musicEnabled;
         console.log('Music toggled:', this.musicEnabled ? 'ON' : 'OFF');
         
-        // Update button text
-        if (this.btnMusic) {
-            this.btnMusic.setText(this.musicEnabled ? 'MUSIC ON' : 'MUSIC OFF');
+        // Update icon texture
+        if (this.musicIcon) {
+            this.musicIcon.updateTexture(this.musicEnabled ? 0 : 1);
         }
         
         // TODO: Implement actual music control logic here
@@ -953,19 +1134,96 @@ export class SceneMain extends Phaser.Scene {
     }
 
     showConfirmDialog(callback) {
-        var dialog = Utils.CreateDialog(this);
-        dialog.setPosition(this.scale.gameSize.width / 2, this.scale.gameSize.height / 2);
-        dialog.layout();
-        dialog.modalPromise({
-            manualClose: true,
-            duration: {
-                in: 500,
-                out: 500
-            }
+        this.showModalDialog(() => {
+            var dialog = Utils.CreateDialog(this);
+            dialog.setPosition(this.scale.gameSize.width / 2, this.scale.gameSize.height / 2);
+            dialog.layout();
+            return dialog;
         }).then(callback);
     }
 
+    showSolverResultDialog(solution) {
+        // Disable ALL input during modal
+        this.inputDisabled = true;
+        this.disableAllControls();
+
+        // Format the solution data for display
+        const formatSolution = (sol) => {
+            if (!sol) return "Guappo’s quantum satellites are buzzing but not answering... must be the honey interference!";
+
+            if (sol.solved === false) {
+                return "No safe route in under 20 moves — Guappo smells honey, but also danger!";
+            } else if (sol.solved === true) {
+                const movesCount = sol.path ? sol.path.length : 0;
+                const suggestedMoves = sol.path ? sol.path.join(' → ') : 'none';
+                return `Guappo’s got it! ${movesCount} moves to cosmic sweetness.\nNext suggested moves: ${suggestedMoves}.`;
+            } else {
+                return "Solver result unclear — Guappo’s thinking circuits are overheating.";
+            }
+        };
+
+        const { width, height } = this.scale.gameSize;
+        const dialogScale = Math.min(width / 400, height / 300);
+        
+        var dialog = this.rexUI.add.dialog({
+            background: this.rexUI.add.roundRectangle(0, 0, 400 * dialogScale, 300 * dialogScale, 20, 0x1a1a2e),
+
+            title: this.rexUI.add.label({
+                background: this.rexUI.add.roundRectangle(0, 0, 100, 40, 20, 0x4a90e2),
+                text: this.add.text(0, 0, 'Tactical Buzz', {
+                    fontSize: Math.max(18 * dialogScale, 16) + 'px',
+                    color: '#FFFFFF'
+                }),
+                space: {
+                    left: 15,
+                    right: 15,
+                    top: 10,
+                    bottom: 10
+                }
+            }),
+
+            content: this.add.text(0, 0, formatSolution(solution), {
+                fontSize: Math.max(16 * dialogScale, 12) + 'px',
+                color: '#FFFFFF',
+                wordWrap: { width: 350 * dialogScale }
+            }),
+
+            actions: [
+                Utils.CreateLabel(this, 'OK', dialogScale)
+            ],
+
+            space: {
+                title: 25,
+                content: 25,
+                action: 15,
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: 20,
+            },
+
+            align: {
+                actions: 'center',
+            },
+
+            expand: {
+                content: false,
+            }
+        })
+            .on('button.over', function (button, groupName, index, pointer, event) {
+                button.getElement('background').setStrokeStyle(1, 0xffffff);
+            })
+            .on('button.out', function (button, groupName, index, pointer, event) {
+                button.getElement('background').setStrokeStyle();
+            });
+
+        dialog.setPosition(width / 2, height / 2);
+        dialog.layout();
+        this.showModalDialog(() => dialog);
+    }
+
     fireGoHome() {
+        if (this.isAnimating || this.inputDisabled) return;
         this.showConfirmDialog((data) => this.goHome(data));
     }
 
@@ -976,25 +1234,67 @@ export class SceneMain extends Phaser.Scene {
         }
     }
 
-    runSolver() {
+    async runSolver() {
         console.log("Attempting to solve level " + this.level.getId() + "...");
-        // Disable all buttons during solving
-        [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
-            if (btn && btn.disableButtonInteractive) btn.disableButtonInteractive();
-        });
 
-        const solution = Solver.solve(this.level, { algorithm: 'PureBacktracking' });
+        // Obtenir la position de l'icône hint pour ancrer la dialog
+        let hintIconPosition = null;
+        if (this.hintIcon && this.hintIcon.img) {
+            const hintBounds = this.hintIcon.img.getBounds();
+            hintIconPosition = { x: hintBounds.centerX, y: hintBounds.centerY };
+        }
+
+        // Show loading dialog with cancel button
+        let cancelled = false;
+        const dialog = new SolverDialog(this, () => {
+            cancelled = true;
+        }, hintIconPosition);
+        dialog.show();
+
+        // Start timer for minimum 3 seconds display
+        const startTime = Date.now();
+        const minDisplayTime = 3000;
+
+        let solution;
+
+        // Check if player has already made moves
+        if (this.gameLogic.moves_counter === 0) {
+            // No moves yet - solve from initial state with PureBacktracking and basescore limit
+            console.log("Solving from initial state with PureBacktracking, max depth:", this.level.getBasescore());
+            solution = Solver.solve(this.level, { algorithm: 'PureBacktracking' });
+        } else {
+            // Player has made moves - solve from current state with BFS and 20 moves limit
+            console.log("Solving from current state with BFS, max depth: 20");
+            const currentState = this.gameLogic.getStateSnapshot();
+            solution = Solver.solve(this.level, {
+                algorithm: 'BFS',
+                initialState: currentState,
+                maxDepth: 20
+            });
+        }
+
         console.log("Solver finished.");
         console.log(solution);
 
-        // Re-enable all buttons after solving
-        [this.btnUp, this.btnDown, this.btnLeft, this.btnRight, this.btnHome, this.btnMusic, this.btnReload, this.btnSolve, this.btnPrev, this.btnNext].forEach(btn => {
-            if (btn && btn.enableButtonInteractive) btn.enableButtonInteractive();
-        });
+        // Wait for minimum display time if needed
+        const elapsed = Date.now() - startTime;
+        if (elapsed < minDisplayTime) {
+            await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsed));
+        }
+
+        // Check if cancelled
+        if (cancelled) {
+            console.log("Solver was cancelled, not showing results");
+            dialog.close();
+            return;
+        }
+
+        // Show solver result in the same dialog
+        dialog.showResult(solution);
     }
 
     reloadLevel() {
-        if (this.isAnimating) return;
+        if (this.isAnimating || this.inputDisabled) return;
         this.showConfirmDialog((data) => {
             if (data.text == 'Yes') {
                 this.scene.restart({ "choosenLevel": this.choosenLevel });

@@ -106,4 +106,32 @@ export class Utils {
         });
     }
 
+    static directionToArrow(direction) {
+        const arrowMap = {
+            'N': '↑',
+            'S': '↓', 
+            'E': '→',
+            'W': '←',
+            'NE': '↗',
+            'NW': '↖',
+            'SE': '↘',
+            'SW': '↙'
+        };
+        return arrowMap[direction] || direction;
+    }
+
+    static directionToWord(direction) {
+        const wordMap = {
+            'N': 'UP',
+            'S': 'DOWN', 
+            'E': 'RIGHT',
+            'W': 'LEFT',
+            'NE': 'UP-RIGHT',
+            'NW': 'UP-LEFT',
+            'SE': 'DOWN-RIGHT',
+            'SW': 'DOWN-LEFT'
+        };
+        return wordMap[direction] || direction;
+    }
+
 }

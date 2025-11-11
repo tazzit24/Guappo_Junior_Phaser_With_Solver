@@ -75,9 +75,10 @@ export class GameLogic {
     /**
      * Simulates a full turn based on a player's input direction.
      * @param {string} direction - One of Enum.DIRECTION
+     * @param {boolean} shouldSaveScore - Whether to save the score if the level is won (default: true)
      * @returns {object} An object containing the status: { isWon: boolean, isLost: boolean }
      */
-    simulateTurn(direction) {
+    simulateTurn(direction, shouldSaveScore = true) {
         this.moves_counter++;
         this.eventEmitter.emit('turnStart', { direction, moves: this.moves_counter });
         this.lastTurnMoves = []; // Clear moves from previous turn
@@ -160,7 +161,9 @@ export class GameLogic {
         if (this.checkIfWon()) {
             // --- SCORE LOGIC ---
             let calculatedScore = SaveGameHelper.getCalculatedScore(this.moves_counter, this.level.basescore);
-            this.saveScore(this.level.id, calculatedScore);
+            if (shouldSaveScore) {
+                this.saveScore(this.level.id, calculatedScore);
+            }
             this.eventEmitter.emit('gameWon', { 
                 score: calculatedScore, 
                 moves: this.moves_counter,

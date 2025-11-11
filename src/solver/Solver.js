@@ -10,42 +10,48 @@ export class Solver {
     /**
      * Attempts to find a solution for a given level.
      * @param {Level} level - The level object to solve.
-     * @param {object} [options={algorithm: 'BFS'}] - Solver options, e.g., { algorithm: 'DFS' }.
+     * @param {object} [options={algorithm: 'BFS'}] - Solver options, e.g., { algorithm: 'DFS', initialState: null, maxDepth: null }.
      * @returns {object} An object with the solution path or failure status.
      */
     static solve(level, options = { algorithm: 'BFS' }) {
         console.log(`Using ${options.algorithm} solver.`);
         if (options.algorithm === 'A*') {
-            return this._solveAStar(level);
+            return this._solveAStar(level, options.initialState, options.maxDepth);
         }
         if (options.algorithm === 'PureBacktracking') {
-            return this._solvePureBacktracking(level);
+            return this._solvePureBacktracking(level, options.initialState, options.maxDepth);
         }
         if (options.algorithm === 'DFS') {
-            return this._solveDFS(level);
+            return this._solveDFS(level, options.initialState, options.maxDepth);
         }
         // Default to BFS
-        return this._solveBFS(level);
+        return this._solveBFS(level, options.initialState, options.maxDepth);
     }
 
     /**
      * Solves using Breadth-First Search (finds the shortest path).
      * @private
      */
-    static _solveBFS(level) {
+    static _solveBFS(level, initialState = null, maxDepth = null) {
         const initialLogic = new GameLogic(level);
-        const initialState = initialLogic.getStateSnapshot();
+        
+        // If an initial state is provided, load it; otherwise use the level's initial state
+        if (initialState) {
+            initialLogic.loadStateFromSnapshot(initialState);
+        }
+        
+        const startState = initialLogic.getStateSnapshot();
 
         // The queue stores states to visit. Each item is { state, path_to_state }
-        const queue = [{ state: initialState, path: [] }];
+        const queue = [{ state: startState, path: [] }];
 
         // 'visited' stores states we've already processed to avoid cycles and redundant work.
-        const visited = new Set([initialState]);
+        const visited = new Set([startState]);
 
         const possibleMoves = [Enum.DIRECTION.NORTH, Enum.DIRECTION.SOUTH, Enum.DIRECTION.EAST, Enum.DIRECTION.WEST];
 
         // Limit search depth to prevent it from running forever
-        const MAX_DEPTH = level.getBasescore() * 2; // BFS finds shortest path, so a smaller multiplier is fine.
+        const MAX_DEPTH = maxDepth || (level.getBasescore() * 2); // BFS finds shortest path, so a smaller multiplier is fine.
 
         while (queue.length > 0) {
             const { state, path } = queue.shift(); // Get the next state to explore
@@ -59,7 +65,7 @@ export class Solver {
                 const logic = new GameLogic(level);
                 logic.loadStateFromSnapshot(state);
 
-                const result = logic.simulateTurn(move);
+                const result = logic.simulateTurn(move, false); // Don't save score during solver simulation
                 const nextState = logic.getStateSnapshot();
 
                 if (result.isWon) {
@@ -113,7 +119,7 @@ export class Solver {
         for (const move of possibleMoves) {
             const nextLogic = new GameLogic(logic.level);
             nextLogic.loadStateFromSnapshot(currentState);
-            const result = nextLogic.simulateTurn(move);
+            const result = nextLogic.simulateTurn(move, false); // Don't save score during solver simulation
 
             if (result.isWon) return [...currentPath, move];
 
@@ -164,7 +170,7 @@ export class Solver {
         for (const move of possibleMoves) {
             const nextLogic = new GameLogic(logic.level);
             nextLogic.loadStateFromSnapshot(currentState); // Restore state for this branch
-            const result = nextLogic.simulateTurn(move);
+            const result = nextLogic.simulateTurn(move, false); // Don't save score during solver simulation
 
             if (result.isWon) return { solved: true, path: [...currentPath, move] };
 
@@ -216,7 +222,7 @@ export class Solver {
                 const nextLogic = new GameLogic(level);
                 nextLogic.loadStateFromSnapshot(current.state);
 
-                const result = nextLogic.simulateTurn(move);
+                const result = nextLogic.simulateTurn(move, false); // Don't save score during solver simulation
                 const nextState = nextLogic.getStateSnapshot();
 
                 if (result.isWon) {
