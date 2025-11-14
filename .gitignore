@@ -1,1 +1,6 @@
 lib/Phaser/
+
+# SSL certificates (confidential)
+*.pem
+cert.pem
+key.pem

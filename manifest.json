@@ -1,0 +1,43 @@
+{
+  "name": "Guappo Junior",
+  "short_name": "Guappo",
+  "description": "A fun Phaser-based puzzle game",
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#292626",
+  "theme_color": "#292626",
+  "icons": [
+    {
+      "src": "assets/images/icon_192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/images/icon_256.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/images/icon_512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "assets/images/Guappo_Junior_logo.png",
+      "sizes": "800x414",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Guappo Junior Game Screenshot"
+    },
+    {
+      "src": "assets/images/Guappo_Junior_logo.png",
+      "sizes": "800x414",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Guappo Junior Game Screenshot"
+    }
+  ]
+}

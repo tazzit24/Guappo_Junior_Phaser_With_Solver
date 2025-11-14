@@ -245,16 +245,7 @@ export class SpaceSlider {
     }
     
     updateProgressFill() {
-        console.log('updateProgressFill called', {
-            showProgress: this.config.showProgress,
-            hasProgressFill: !!this.components.progressFill,
-            value: this.value,
-            minValue: this.minValue,
-            maxValue: this.maxValue
-        });
-        
         if (!this.config.showProgress || !this.components.progressFill) {
-            console.log('Progress fill skipped - config or component missing');
             return;
         }
         
@@ -264,8 +255,6 @@ export class SpaceSlider {
         // Calculate progress width based on current value
         const ratio = (this.value - this.minValue) / (this.maxValue - this.minValue);
         let progressWidth = this.width * ratio;
-        
-        console.log(`Progress calculation: ratio=${ratio}, progressWidth=${progressWidth}, totalWidth=${this.width}`);
         
         // Ensure some progress is visible even at minimum value + small amount
         if (this.value > this.minValue && progressWidth < 5) {
@@ -282,8 +271,6 @@ export class SpaceSlider {
                 this.config.sliderHeight,
                 this.config.borderRadius
             );
-            
-            console.log(`Progress fill drawn: width=${progressWidth}, ratio=${ratio}, value=${this.value}`);
         }
     }
     
