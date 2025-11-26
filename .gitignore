@@ -4,3 +4,7 @@ lib/Phaser/
 *.pem
 cert.pem
 key.pem
+
+# Node modules folder created by npm install
+# We don't want to commit this (large & machine-specific)
+node_modules/
