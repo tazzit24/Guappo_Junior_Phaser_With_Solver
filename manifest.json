@@ -2,7 +2,7 @@
   "name": "Guappo Junior",
   "short_name": "Guappo",
   "description": "A fun Phaser-based puzzle game",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#292626",
