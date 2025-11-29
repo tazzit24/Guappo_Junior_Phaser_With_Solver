@@ -1,6 +1,6 @@
-import { GlobalSettings } from './src/game/GlobalSettings.js';
-
-const CACHE_NAME = `guappo-${GlobalSettings.version}`;
+// Update this version manually when you deploy a new version
+const APP_VERSION = '1.0.4';
+const CACHE_NAME = `guappo-${APP_VERSION}`;
 const urlsToCache = [
   './',
   './index.html',

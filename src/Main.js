@@ -83,7 +83,8 @@ if ('serviceWorker' in navigator) {
             });
         }
         
-        navigator.serviceWorker.register('./sw.js', { type: 'module' })
+        // Register with updateViaCache: 'none' to ensure the browser checks the network for the SW
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
             .then(function(registration) {
                 console.log('Service Worker registered successfully with scope:', registration.scope);
                 
