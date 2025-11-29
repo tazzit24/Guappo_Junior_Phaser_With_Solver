@@ -1,116 +1,111 @@
-# Architecture Événementielle - Guappo Junior
+ # Event-driven Architecture - Guappo Junior
 
-## Vue d'ensemble
+ # Event-driven Architecture - Guappo Junior
 
-Cette version refactorisée du jeu Guappo Junior implémente une architecture MVC avec gestion événementielle pour découpler la logique de jeu de son affichage.
+## Overview
 
-## Composants Principaux
+This refactored version of Guappo Junior implements an MVC architecture with an
+event-driven communication layer that decouples game logic from presentation.
+
+## Main Components
 
 ### 1. EventEmitter (`src/game/EventEmitter.js`)
-- **Rôle** : Système de communication entre composants
-- **Fonctionnalités** :
-  - `on(event, callback)` : S'abonner à un événement
-  - `off(event, callback)` : Se désabonner d'un événement  
-  - `emit(event, ...args)` : Émettre un événement avec des données
-- **Avantages** : Découplage total, gestion d'erreurs, API simple
+- Purpose: Communication system between components
+- Features:
+  - `on(event, callback)`: Subscribe to an event
+  - `off(event, callback)`: Unsubscribe from an event
+  - `emit(event, ...args)`: Emit an event with data
+- Benefits: Full decoupling, simple API, easier error handling
 
-### 2. GameLogic (Modèle - `src/game/GameLogic.js`)
-- **Rôle** : Logique de jeu pure, sans dépendance graphique
-- **Nouveautés** :
-  - Intégration d'un `EventEmitter` 
-  - Émission d'événements pour toutes les actions importantes
-  - Méthodes utilitaires `on`/`off` pour faciliter l'usage
-- **Événements émis** :
-  - `turnStart` : Début d'un tour de jeu
-  - `pieceMoved` : Déplacement de pièce(s)
-  - `turnEnd` : Fin d'un tour normal
-  - `gameWon` : Victoire du joueur
-  - `gameOver` : Défaite du joueur
+### 2. GameLogic (Model - `src/game/GameLogic.js`)
+- Purpose: Pure game logic with no rendering dependencies
+- Highlights:
+  - Integrates an `EventEmitter`
+  - Emits events for all important actions
+  - Provides utility `on`/`off` methods for convenience
+- Events emitted:
+  - `turnStart`: Beginning of a simulated turn
+  - `pieceMoved`: A piece moved (used to build animation queues)
+  - `turnEnd`: End of a normal turn
+  - `gameWon`: Player has won the level
+  - `gameOver`: Player has lost the level
 
-### 3. SceneMain (Vue - `src/scenes/SceneMain.js`)
-- **Rôle** : Affichage et interactions utilisateur
-- **Nouveautés** :
-  - Écoute des événements GameLogic au lieu d'accès direct aux données
-  - Animation synchronisée des mouvements avant toute action de fin de jeu
-  - Centralisation des abonnements dans `setupGameEventListeners()`
-  - Nettoyage automatique des événements à la fermeture
-  - Gestion correcte de l'état d'animation
+### 3. SceneMain (View - `src/scenes/SceneMain.js`)
+- Purpose: Rendering and user interactions
+- Highlights:
+  - Listens to GameLogic events instead of accessing data directly
+  - Synchronizes animations with the logical turn result
+  - Centralizes event subscriptions in `setupGameEventListeners()`
+  - Automatically cleans up subscriptions on shutdown
+  - Proper animation state handling
 
-## Flux de Communication
+## Communication Flow
 
 ```
 ┌─────────────┐                   ┌───────────────┐                      ┌──────────────────┐
-│ Utilisateur │                   │   SceneMain   │                      │    GameLogic     │
+│ User Input  │                   │   SceneMain   │                      │    GameLogic     │
 └──────┬──────┘                   └───────┬───────┘                      └────────┬─────────┘
        │                                  │                                       │
-       │   Appuie sur une direction       │                                       │
+       │   Player presses a direction     │                                       │
        ├─────────────────────────────────>│                                       │
        │                                  │                                       │
        │                                  │        simulateTurn(direction)        │
        │                                  ├──────────────────────────────────────>│
        │                                  │                                       │
-       │                                  │                                       │ Calcule les mouvements
-       │                                  │                                       │ et l'état final du jeu
-       │                                  │                                       │
-       │                                  │       Émet 'turnStart', 'pieceMoved'  │
+       │                                  │                                       │ Compute moves and final state
+       │                                  │       Emit 'turnStart', 'pieceMoved'  │
        │                                  │<──────────────────────────────────────┤
        │                                  │                                       │
-       │                                  │      Si victoire: émet 'gameWon'      │
+       │                                  │      If win: emit 'gameWon'           │
        │                                  │<──────────────────────────────────────┤
        │                                  │                                       │
-       │                                  │      Si défaite: émet 'gameOver'      │
+       │                                  │      If loss: emit 'gameOver'         │
        │                                  │<──────────────────────────────────────┤
        │                                  │                                       │
-       │                                  │ Met à jour lastTurnMoves et retourne  │
+       │                                  │ Update lastTurnMoves and return       │
        │                                  │<──────────────────────────────────────┤
        │                                  │                                       │
-       │                                  │ Anime tous les mouvements             │
-       │                                  │ avec await animateMoves()             │
+       │                                  │ Animate all moves with await animateMoves()
        │                                  │                                       │
-       │                                  │                                       │
-       │           APRÈS l'animation complète:                                    │
-       │                                  │                                       │
-       │                                  │ Si victoire/défaite:                  │
-       │                                  │ Affiche écran de fin                  │
-       │                                  │                                       │
-       │                                  │ Sinon: Réactive contrôles             │
-       │                                  │                                       │
-       │                                  │ Émet 'turnEnd'                        │
+       │                                  │ After animations complete:            │
+       │                                  │ If win/loss: show end screen         │
+       │                                  │ Else: re-enable controls             │
+       │                                  │ Emit 'turnEnd'                        │
        │                                  │                                       │
 └───────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Événements Détaillés
+## Event Payloads
 
 ### `turnStart`
 ```javascript
 {
-  direction: string,  // Direction du mouvement
-  moves: number      // Nombre de coups joués
+  direction: string,  // Movement direction
+  moves: number       // Number of moves simulated
 }
 ```
 
-### `pieceMoved` 
+### `pieceMoved`
 ```javascript
 {
-  moves: Array  // Liste des mouvements à animer
+  moves: Array  // List of atomic moves to animate
 }
 ```
 
 ### `turnEnd`
 ```javascript
 {
-  moves: number,     // Nombre total de coups
-  state: string      // État sérialisé du jeu
+  moves: number,     // Total number of moves
+  state: string      // Serialized game state
 }
 ```
 
 ### `gameWon`
 ```javascript
 {
-  score: number,     // Score calculé
-  moves: number,     // Nombre de coups
-  levelId: number    // ID du niveau
+  score: number,     // Calculated score
+  moves: number,     // Number of moves
+  levelId: number    // Level identifier
 }
 ```
 
@@ -118,33 +113,175 @@ Cette version refactorisée du jeu Guappo Junior implémente une architecture MV
 ```javascript
 {
   reason: string,    // 'wappo_died', 'friend_died', 'enemy_attack'
-  moves: number      // Nombre de coups
+  moves: number      // Number of moves
 }
 ```
 
-## Avantages de cette Architecture
+## Benefits of this Architecture
 
-1. **Découplage** : GameLogic fonctionne indépendamment de Phaser
-2. **Testabilité** : La logique peut être testée unitairement
-3. **Maintenabilité** : Modifications isolées dans chaque composant
-4. **Évolutivité** : Ajout facile de nouvelles fonctionnalités
-5. **Flexibilité** : Possibilité d'avoir plusieurs vues pour le même modèle
+1. Decoupling: GameLogic runs independently from Phaser rendering
+2. Testability: Logic can be unit-tested easily
+3. Maintainability: Changes are isolated to specific components
+4. Scalability: Easy to add new features
+5. Flexibility: Multiple views can be built for the same model
 
-## Utilisation
+## Usage Examples
 
-### Écouter un événement de jeu
+### Listen to a game event
 ```javascript
 game.on('gameWon', (data) => {
-  console.log(`Niveau gagné en ${data.moves} coups !`);
+  console.log(`Level won in ${data.moves} moves!`);
 });
 ```
 
-### Se désabonner d'un événement
+### Unsubscribe from an event
 ```javascript
 const unsubscribe = game.on('turnStart', callback);
-unsubscribe(); // Se désabonner
+unsubscribe(); // Unsubscribe
 ```
 
 ## Tests
 
-Un script de test est disponible dans `test-events.js` pour vérifier le bon fonctionnement du système d'événements.
+A test script is available in `test-events.js` to verify the event system behavior.
+
+## Overview
+
+This refactored version of Guappo Junior implements an MVC architecture with an
+event-driven communication layer that decouples game logic from presentation.
+
+## Main Components
+
+### 1. EventEmitter (`src/game/EventEmitter.js`)
+- Purpose: Communication system between components
+- Features:
+  - `on(event, callback)`: Subscribe to an event
+  - `off(event, callback)`: Unsubscribe from an event
+  - `emit(event, ...args)`: Emit an event with data
+- Benefits: Full decoupling, simple API, easier error handling
+
+### 2. GameLogic (Model - `src/game/GameLogic.js`)
+- Purpose: Pure game logic with no rendering dependencies
+- Highlights:
+  - Integrates an `EventEmitter`
+  - Emits events for all important actions
+  - Provides utility `on`/`off` methods for convenience
+- Events emitted:
+  - `turnStart`: Beginning of a simulated turn
+  - `pieceMoved`: A piece moved (used to build animation queues)
+  - `turnEnd`: End of a normal turn
+  - `gameWon`: Player has won the level
+  - `gameOver`: Player has lost the level
+
+### 3. SceneMain (View - `src/scenes/SceneMain.js`)
+- Purpose: Rendering and user interactions
+- Highlights:
+  - Listens to GameLogic events instead of accessing data directly
+  - Synchronizes animations with the logical turn result
+  - Centralizes event subscriptions in `setupGameEventListeners()`
+  - Automatically cleans up subscriptions on shutdown
+  - Proper animation state handling
+
+## Communication Flow
+
+```
+┌─────────────┐                   ┌───────────────┐                      ┌──────────────────┐
+│ User Input  │                   │   SceneMain   │                      │    GameLogic     │
+└──────┬──────┘                   └───────┬───────┘                      └────────┬─────────┘
+       │                                  │                                       │
+       │   Player presses a direction     │                                       │
+       ├─────────────────────────────────>│                                       │
+       │                                  │                                       │
+       │                                  │        simulateTurn(direction)        │
+       │                                  ├──────────────────────────────────────>│
+       │                                  │                                       │
+       │                                  │                                       │ Compute moves and final state
+       │                                  │       Emit 'turnStart', 'pieceMoved'  │
+       │                                  │<──────────────────────────────────────┤
+       │                                  │                                       │
+       │                                  │      If win: emit 'gameWon'           │
+       │                                  │<──────────────────────────────────────┤
+       │                                  │                                       │
+       │                                  │      If loss: emit 'gameOver'         │
+       │                                  │<──────────────────────────────────────┤
+       │                                  │                                       │
+       │                                  │ Update lastTurnMoves and return       │
+       │                                  │<──────────────────────────────────────┤
+       │                                  │                                       │
+       │                                  │ Animate all moves with await animateMoves()
+       │                                  │                                       │
+       │                                  │ After animations complete:            │
+       │                                  │ If win/loss: show end screen         │
+       │                                  │ Else: re-enable controls             │
+       │                                  │ Emit 'turnEnd'                        │
+       │                                  │                                       │
+└───────────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Event Payloads
+
+### `turnStart`
+```javascript
+{
+  direction: string,  // Movement direction
+  moves: number       // Number of moves simulated
+}
+```
+
+### `pieceMoved`
+```javascript
+{
+  moves: Array  // List of atomic moves to animate
+}
+```
+
+### `turnEnd`
+```javascript
+{
+  moves: number,     // Total number of moves
+  state: string      // Serialized game state
+}
+```
+
+### `gameWon`
+```javascript
+{
+  score: number,     // Calculated score
+  moves: number,     // Number of moves
+  levelId: number    // Level identifier
+}
+```
+
+### `gameOver`
+```javascript
+{
+  reason: string,    // 'wappo_died', 'friend_died', 'enemy_attack'
+  moves: number      // Number of moves
+}
+```
+
+## Benefits of this Architecture
+
+1. Decoupling: GameLogic runs independently from Phaser rendering
+2. Testability: Logic can be unit-tested easily
+3. Maintainability: Changes are isolated to specific components
+4. Scalability: Easy to add new features
+5. Flexibility: Multiple views can be built for the same model
+
+## Usage Examples
+
+### Listen to a game event
+```javascript
+game.on('gameWon', (data) => {
+  console.log(`Level won in ${data.moves} moves!`);
+});
+```
+
+### Unsubscribe from an event
+```javascript
+const unsubscribe = game.on('turnStart', callback);
+unsubscribe(); // Unsubscribe
+```
+
+## Tests
+
+A test script is available in `test-events.js` to verify the event system behavior.

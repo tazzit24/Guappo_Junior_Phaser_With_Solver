@@ -4,16 +4,16 @@ export class SolverDialog {
     constructor(scene, onCancel = null, anchorPosition = null) {
         this.scene = scene;
         this.onCancel = onCancel;
-        this.anchorPosition = anchorPosition; // Position de l'élément d'ancrage (icône hint)
+        this.anchorPosition = anchorPosition; // Position of the anchor element (hint icon)
 
-        this.padding = 16; // Padding autour de la dialog
-        this.dialogAlpha = 0.75; // Transparence du fond de la dialog
+        this.padding = 16; // Padding around the dialog
+        this.dialogAlpha = 0.75; // Dialog background transparency
 
         this.overlay = null;
         this.dialogContainer = null;
         this.backgroundGraphics = null;
         this.contentContainer = null;
-        this.arrowGraphics = null; // Flèche pointant vers l'ancrage
+        this.arrowGraphics = null; // Arrow pointing to the anchor
     }
 
     show() {
@@ -35,18 +35,18 @@ export class SolverDialog {
         const { width, height } = this.scene.scale.gameSize;
         const depthBase = 1000;
 
-        // Calculer d'abord la largeur nécessaire pour le contenu
+        // First, compute the width required for the content
         const estimatedContentWidth = this.calculateContentWidth();
         this.dialogWidth = Math.min(width * 0.95, Math.max(estimatedContentWidth + this.padding * 2, 400));
-        this.dialogHeight = 200; // Hauteur fixe compacte
+        this.dialogHeight = 200; // Compact fixed height
         this.contentWidth = this.dialogWidth - this.padding * 2;
 
-        // Utiliser la position d'ancrage si fournie, sinon centrer
+        // Use the anchor position if provided, otherwise center
         let anchorPosition = this.anchorPosition || { x: width / 2, y: height / 2 };
 
-        // Positionner la dialog centrée horizontalement, toujours en dessous de l'ancrage
+        // Position the dialog centered horizontally, always below the anchor
         const arrowHeight = 15;
-        const dialogX = width / 2; // Centrer horizontalement sur l'écran
+        const dialogX = width / 2; // Center horizontally on the screen
         const dialogY = anchorPosition.y + 40 + this.dialogHeight / 2 + arrowHeight;
 
         this.arrowDirection = 'up';
@@ -73,7 +73,7 @@ export class SolverDialog {
         this.dialogContainer.setDepth(depthBase + 1);
         this.dialogContainer.setScrollFactor(0);
 
-        // Créer la flèche pointant vers l'ancrage
+        // Create the arrow pointing to the anchor
         this.arrowGraphics = this.scene.add.graphics();
         this.arrowGraphics.setScrollFactor(0);
         this.arrowGraphics.setDepth(depthBase + 2);
@@ -112,7 +112,7 @@ export class SolverDialog {
         // Handle resize
         this.scene.scale.on('resize', this.handleResize, this);
 
-        // Fermeture au clic sur l'overlay ou la dialog
+        // Close on overlay or dialog click
         this.overlay.on('pointerdown', () => {
             this.handleCloseAction();
         });
@@ -132,11 +132,11 @@ export class SolverDialog {
         }
         this.backgroundGraphics.clear();
         
-        // Fond sombre avec bordure claire pour le contraste
+        // Dark background with a light border for contrast
         this.backgroundGraphics.fillStyle(0x1a1a2e, this.dialogAlpha);
         this.backgroundGraphics.fillRoundedRect(-this.dialogWidth / 2, -this.dialogHeight / 2, this.dialogWidth, this.dialogHeight, 12);
         
-        // Bordure claire pour améliorer le contraste
+        // Light border to improve contrast
         this.backgroundGraphics.lineStyle(2, 0x4a90e2, 0.8);
         this.backgroundGraphics.strokeRoundedRect(-this.dialogWidth / 2, -this.dialogHeight / 2, this.dialogWidth, this.dialogHeight, 12);
     }
@@ -152,13 +152,13 @@ export class SolverDialog {
         const arrowWidth = 16;
         const arrowHeight = 15;
 
-        // Calculer directement le bord supérieur du rectangle de la dialog
+        // Compute the top edge of the dialog rectangle directly
         const dialogTop = this.dialogContainer.y - this.dialogHeight / 2;
 
-        // Calculer la position X de la flèche (alignée avec l'ancrage)
+        // Compute the X position of the arrow (aligned with the anchor)
         const arrowX = anchorPosition.x;
 
-        // Flèche pointant vers le haut, base touchant le bord supérieur de la dialog
+        // Arrow pointing up, base touching the top edge of the dialog
         const arrowY = dialogTop - arrowHeight;
         this.arrowGraphics.fillTriangle(
             arrowX - arrowWidth / 2, arrowY + arrowHeight,
@@ -166,7 +166,7 @@ export class SolverDialog {
             arrowX, arrowY
         );
         
-        // Bordure de la flèche pour le contraste
+        // Arrow border for contrast
         this.arrowGraphics.lineStyle(2, 0x4a90e2, 0.8);
         this.arrowGraphics.beginPath();
         this.arrowGraphics.moveTo(arrowX - arrowWidth / 2, arrowY + arrowHeight);
@@ -176,8 +176,8 @@ export class SolverDialog {
     }
 
     calculateContentWidth() {
-        // Estimation de la largeur nécessaire pour le contenu
-        // Basé sur les textes les plus longs possibles
+        // Estimate of the width needed for content
+        // Based on the longest possible texts
         const testText = this.scene.add.text(0, 0, 'Calculating solution...', {
             fontSize: '54px',
             fontStyle: 'bold'
@@ -199,18 +199,18 @@ export class SolverDialog {
 
         const { width, height } = this.scene.scale.gameSize;
 
-        // Utiliser la position d'ancrage si fournie, sinon centrer
+        // Use the anchor position if provided, otherwise center
         let anchorPosition = this.anchorPosition || { x: width / 2, y: height / 2 };
 
-        // Positionner la dialog centrée horizontalement, toujours en dessous de l'ancrage
+        // Position the dialog centered horizontally, always below the anchor
         const arrowHeight = 15;
-        const dialogX = width / 2; // Centrer horizontalement sur l'écran
+        const dialogX = width / 2; // Center horizontally on the screen
         const dialogY = anchorPosition.y + 40 + this.dialogHeight / 2 + arrowHeight;
 
         this.dialogContainer.setPosition(dialogX, dialogY);
         this.contentContainer.setPosition(0, 0);
 
-        // Redessiner la flèche
+        // Redraw the arrow
         this.drawArrow(anchorPosition);
     }
 
@@ -220,7 +220,7 @@ export class SolverDialog {
         const startX = -this.dialogWidth / 2 + this.padding;
         const maxX = this.dialogWidth / 2 - this.padding;
 
-        // Icône de chargement (spinner)
+        // Loading icon (spinner)
         const spinner = this.scene.add.text(startX + 18, 0, '⟳', {
             fontSize: '72px',
             color: '#FFD700',
@@ -229,10 +229,10 @@ export class SolverDialog {
         spinner.setOrigin(0.5);
         spinner.setScrollFactor(0);
         
-        // Vérifier si le spinner dépasse la largeur disponible
+        // Check if the spinner exceeds the available width
         const spinnerEndX = startX + 18 + spinner.width / 2;
         if (spinnerEndX > maxX) {
-            // Réduire la taille du spinner si nécessaire
+            // Reduce spinner size if necessary
             const availableWidth = maxX - (startX + 18);
             const scale = (availableWidth * 2) / spinner.width; // *2 parce que origin 0.5
             if (scale < 1) {
@@ -242,7 +242,7 @@ export class SolverDialog {
         
         this.contentContainer.add(spinner);
 
-        // Animation de rotation du spinner
+        // Spinner rotation animation
         this.scene.tweens.add({
             targets: spinner,
             angle: 360,
@@ -251,7 +251,7 @@ export class SolverDialog {
             ease: 'Linear'
         });
 
-        // Texte de chargement
+        // Loading text
         const text = this.scene.add.text(startX + 90, 0, 'Calculating solution...', {
             fontSize: '54px',
             color: '#FFFFFF',
@@ -260,10 +260,10 @@ export class SolverDialog {
         text.setOrigin(0, 0.5);
         text.setScrollFactor(0);
         
-        // Vérifier si le texte dépasse la largeur disponible
+        // Check if the text exceeds the available width
         const textEndX = startX + 90 + text.width;
         if (textEndX > maxX) {
-            // Réduire la taille de la police si nécessaire
+            // Reduce font size if necessary
             const availableWidth = maxX - (startX + 90);
             const scale = availableWidth / text.width;
             if (scale < 1) {
@@ -284,7 +284,7 @@ export class SolverDialog {
         const maxX = this.dialogWidth / 2 - this.padding;
         let xOffset = startX;
         
-        // Créer d'abord tous les objets texte pour mesurer la largeur totale
+        // First create all text objects to measure total width
         const textObjects = [];
         let totalWidth = 0;
         const spacings = [];
@@ -301,7 +301,7 @@ export class SolverDialog {
             spacings.push(line.spacing ?? 10);
         });
         
-        // Calculer l'espacement total
+        // Compute total spacing
         const totalSpacing = spacings.reduce((sum, spacing, index) => {
             return index < spacings.length - 1 ? sum + spacing : sum;
         }, 0);
@@ -309,7 +309,7 @@ export class SolverDialog {
         const totalContentWidth = totalWidth + totalSpacing;
         const availableWidth = maxX - startX;
         
-        // Calculer le facteur de scale global si nécessaire
+        // Compute global scale factor if needed
         const globalScale = totalContentWidth > availableWidth ? availableWidth / totalContentWidth : 1;
         
         // Positionner et scaler les textes
@@ -328,7 +328,7 @@ export class SolverDialog {
     }
 
     startAnimation() {
-        // Plus besoin d'animation de points, le spinner suffit
+        // No need for dot animation anymore; the spinner is sufficient
     }
 
     stopAnimation() {
@@ -403,7 +403,7 @@ export class SolverDialog {
         this.overlay.fillRect(0, 0, width, height);
         this.overlay.setAlpha(0.5);
 
-        // Recalculer les dimensions
+        // Recompute dimensions
         const estimatedContentWidth = this.calculateContentWidth();
         this.dialogWidth = Math.min(width * 0.95, Math.max(estimatedContentWidth + this.padding * 2, 400));
         this.dialogHeight = 200;
@@ -411,7 +411,7 @@ export class SolverDialog {
 
         this.redrawBackground();
         
-        // Réactiver l'interactivité du background
+        // Re-enable background interactivity
         this.backgroundGraphics.removeInteractive();
         this.backgroundGraphics.setInteractive(
             new Phaser.Geom.Rectangle(-this.dialogWidth / 2, -this.dialogHeight / 2, this.dialogWidth, this.dialogHeight),

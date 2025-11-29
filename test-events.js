@@ -1,6 +1,6 @@
 /**
- * Test script pour vérifier l'architecture événementielle
- * Peut être exécuté dans la console du navigateur
+ * Test script to verify the event architecture
+ * Can be executed in the browser console
  */
 
 // Test de l'EventEmitter
@@ -25,7 +25,7 @@ console.log(`Counter after off: ${counter}`); // Should still be 2
 
 // Test GameLogic events
 console.log("\n=== Test GameLogic Events ===");
-// Cette partie nécessite d'avoir une instance de GameLogic active
+// This section requires an active GameLogic instance
 
 function testGameLogicEvents() {
     if (typeof game !== 'undefined' && game.eventEmitter) {

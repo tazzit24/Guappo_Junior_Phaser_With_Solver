@@ -30,8 +30,8 @@ export class GameLogic {
     }
 
      /*
-     * Enregistre le score dans localStorage pour le niveau donné.
-     * Met à jour bestscore/datebest et lastscore/datelast.
+     * Save the score to localStorage for the given level.
+     * Updates bestScore/dateBest and lastScore/dateLast.
      */
     saveScore(levelId, score) {
         SaveGameHelper.saveScore(levelId, score);
@@ -102,8 +102,8 @@ export class GameLogic {
             this.eventEmitter.emit('pieceMoved', { moves: [wappoMove.move] });
         }
 
-        // --- Friends' Moves (nouvelle logique alignée sur les ennemis) ---
-        // On calcule le maxStep des amis
+        // --- Friends' Moves (new logic aligned with enemies) ---
+        // Compute the max step among friends
         const sortedFriends = this.friends.filter(f => f);
         const maxFriendSteps = sortedFriends.length > 0 ? Math.max(...sortedFriends.map(f => f.getStep())) : 0;
         const MAX_TICKS = 6; // Safety break to prevent infinite loops, as in the original game.
@@ -141,13 +141,13 @@ export class GameLogic {
                     }
                 }
             }
-            // Animation parallèle pour ce stepRound (état final de chaque ami)
+            // Parallel animation for this stepRound (final state of each friend)
             const allMovesForStepRound = Array.from(friendMovesMap.values());
             if (allMovesForStepRound.length > 0) {
                 this.lastTurnMoves.push(allMovesForStepRound);
                 this.eventEmitter.emit('pieceMoved', { moves: allMovesForStepRound });
             }
-            // Après tous les ticks de ce stepRound, on incrémente movesCounter des amis qui n'ont pas pu bouger
+            // After all ticks of this stepRound, increment movesCounter for friends that couldn't move
             for (const friend of sortedFriends) {
                 if (friend.getStep() >= stepRound && friend.getMovesCounter() < stepRound) {
                     friend.incrementMoves();
@@ -191,7 +191,7 @@ export class GameLogic {
         for (let stepRound = 1; stepRound <= maxSteps; stepRound++) {
             let movedInTick = true;
             let ticks = 0;
-            let enemyMovesMap = new Map(); // Utiliser une Map pour stocker le dernier état de chaque ennemi
+            let enemyMovesMap = new Map(); // Use a Map to store the last state of each enemy
             
             while (movedInTick && ticks < MAX_TICKS) {
                 movedInTick = false;
@@ -217,11 +217,11 @@ export class GameLogic {
                             movedInTick = true;
                         }
                         
-                        // Stocker le dernier état de cet ennemi (écrase les états précédents)
+                        // Store the last state of this enemy (overwrites previous states)
                         if (result.move) {
                             enemyMovesMap.set(enemy, result.move);
                         } else {
-                            // Si l'ennemi ne bouge pas ET n'a pas encore de move enregistré, on ajoute le blocage
+                            // If the enemy doesn't move AND has no recorded move, add the blocked state
                             if (!enemyMovesMap.has(enemy)) {
                                 enemyMovesMap.set(enemy, { piece: enemy, isBlocked: true, dir: enemy.getDirection() });
                             }
@@ -230,7 +230,7 @@ export class GameLogic {
                 }
             }
 
-            // Animer tous les moves de ce stepRound ensemble (seulement l'état final de chaque ennemi)
+            // Animate all moves for this stepRound together (only the final state of each enemy)
             const allMovesForStepRound = Array.from(enemyMovesMap.values());
             if (allMovesForStepRound.length > 0) {
                 this.lastTurnMoves.push(allMovesForStepRound);
@@ -280,7 +280,7 @@ export class GameLogic {
                 piece.turnAround();
             }
             target_cellXY = this.getTargetCell(piece, piece.getDirection());
-            directionBeforeMove = piece.getDirection(); // direction vient d'être changée
+            directionBeforeMove = piece.getDirection(); // direction has just been changed
         }
 
         const canMove = isEnemy ? this.canMoveEnemy(target_cellXY) : this.canMoveHero(target_cellXY);
@@ -305,7 +305,7 @@ export class GameLogic {
                 if (!dest_cell || !dest_cell.containsEnemy()) {
                     piece.incrementMoves();
                 }
-                // Bounce uniquement si bloqué par un autre ennemi
+                // Bounce only if blocked by another enemy
                 if (dest_cell && dest_cell.containsEnemy()) {
                     moveDesc = { piece, isBlocked: true, dir: directionBeforeMove };
                 }
@@ -315,7 +315,7 @@ export class GameLogic {
                 if (!isFriend) piece.incrementMoves();
             }
         }
-        // Si la direction a changé mais pas de move, on force un flip
+        // If the direction changed but there was no move, force a flip
         if (isEnemy && originalDirection !== piece.getDirection() && !moveDesc) {
             moveDesc = { piece, isBlocked: true, dir: piece.getDirection() };
         }

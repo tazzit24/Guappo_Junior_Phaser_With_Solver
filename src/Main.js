@@ -5,6 +5,9 @@ import { SceneHome } from './scenes/SceneHome.js';
 import { SceneMain } from './scenes/SceneMain.js';
 import { SceneGameover } from './scenes/SceneGameover.js';
 import { SceneScores } from './scenes/SceneScores.js';
+import { SceneSettings } from './scenes/SceneSettings.js';
+import { ScenePreload } from './scenes/ScenePreload.js';
+import { GlobalSettings } from './game/GlobalSettings.js';
 
 /*var isMobile = navigator.userAgent.indexOf("Mobile");
 if (isMobile == -1) {
@@ -31,7 +34,7 @@ if (isMobile == -1) {
 var config = {
     type: Phaser.AUTO,
     parent: 'phaser-game',
-    scene: [SceneHome, SceneMain, SceneGameover, SceneScores],
+    scene: [ScenePreload, SceneHome, SceneMain, SceneGameover, SceneScores, SceneSettings],
     plugins: {
         global: [],
         scene: [
@@ -58,6 +61,9 @@ var config = {
 
 var game = new Phaser.Game(config);
 
+// Set document title from GlobalSettings
+document.title = `${GlobalSettings.gameName} v${GlobalSettings.version}`;
+
 // PWA Registration and Logging
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
@@ -77,12 +83,9 @@ if ('serviceWorker' in navigator) {
             });
         }
         
-        navigator.serviceWorker.register('./sw.js')
+        navigator.serviceWorker.register('./sw.js', { type: 'module' })
             .then(function(registration) {
                 console.log('Service Worker registered successfully with scope:', registration.scope);
-                
-                // Log game version (from manifest or hardcoded)
-                console.log('Guappo Junior Game Version: 1.1');
                 
                 // Check if the app is running as PWA
                 const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
@@ -92,6 +95,108 @@ if ('serviceWorker' in navigator) {
                 
                 // Log registration status
                 console.log('Service Worker registration status:', registration.active ? 'active' : 'installing');
+
+                // --- Update Management ---
+                
+                // Function to show update notification
+                function showUpdateNotification(worker) {
+                    if (!GlobalSettings.updatesEnabled) {
+                        console.log('Update available but notifications are disabled in settings.');
+                        return;
+                    }
+
+                    const notification = document.createElement('div');
+                    notification.style.position = 'fixed';
+                    notification.style.bottom = '20px';
+                    notification.style.left = '50%';
+                    notification.style.transform = 'translateX(-50%)';
+                    notification.style.backgroundColor = '#333';
+                    notification.style.color = 'white';
+                    notification.style.padding = '15px';
+                    notification.style.borderRadius = '5px';
+                    notification.style.boxShadow = '0 2px 10px rgba(0,0,0,0.5)';
+                    notification.style.zIndex = '10000';
+                    notification.style.display = 'flex';
+                    notification.style.alignItems = 'center';
+                    notification.style.gap = '10px';
+                    notification.style.fontFamily = 'Arial, sans-serif';
+
+                    const text = document.createElement('span');
+
+                    text.textContent = 'A new version is available!';
+                    
+                    const button = document.createElement('button');
+                    button.textContent = 'Update';
+                    button.style.padding = '5px 10px';
+                    button.style.cursor = 'pointer';
+                    button.style.backgroundColor = '#4CAF50';
+                    button.style.color = 'white';
+                    button.style.border = 'none';
+                    button.style.borderRadius = '3px';
+                    
+                    button.onclick = () => {
+                        if (worker) {
+                            worker.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                        notification.remove();
+                    };
+
+                    const closeBtn = document.createElement('button');
+                    closeBtn.textContent = '✕';
+                    closeBtn.style.background = 'none';
+                    closeBtn.style.border = 'none';
+                    closeBtn.style.color = 'white';
+                    closeBtn.style.cursor = 'pointer';
+                    closeBtn.style.marginLeft = '10px';
+                    closeBtn.style.fontSize = '16px';
+                    closeBtn.onclick = () => notification.remove();
+
+                    notification.appendChild(text);
+                    notification.appendChild(button);
+                    notification.appendChild(closeBtn);
+                    document.body.appendChild(notification);
+                }
+
+                // Expose for testing
+                window.testUpdateNotification = () => showUpdateNotification(null);
+                
+                // Expose check for updates
+                window.checkForUpdates = () => {
+                    console.log('Checking for updates...');
+                    registration.update().then(() => {
+                        console.log('Update check completed.');
+                        if (!registration.waiting && !registration.installing) {
+                            alert('No updates available.');
+                        }
+                    }).catch(err => {
+                        console.error('Update check failed:', err);
+                        alert('Update check failed. See console for details.');
+                    });
+                };
+
+                // Add keyboard shortcut for testing (Press 'U')
+                window.addEventListener('keydown', (e) => {
+                    // Only trigger if no input field is focused
+                    if (e.target.tagName !== 'INPUT' && (e.key === 'u' || e.key === 'U')) {
+                        console.log('Testing update notification UI');
+                        showUpdateNotification(null);
+                    }
+                });
+
+                // Check if there's already a waiting worker
+                if (registration.waiting) {
+                    showUpdateNotification(registration.waiting);
+                }
+
+                // Listen for new updates
+                registration.onupdatefound = () => {
+                    const newWorker = registration.installing;
+                    newWorker.onstatechange = () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            showUpdateNotification(newWorker);
+                        }
+                    };
+                };
                 
                 if (isDevMode) {
                     console.log('Dev mode: Skipping update call (SW was just re-registered)');
@@ -117,6 +222,14 @@ if ('serviceWorker' in navigator) {
             .catch(function(error) {
                 console.log('Service Worker registration failed:', error);
             });
+
+        // Reload the page when the new service worker takes control
+        let refreshing;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshing) return;
+            window.location.reload();
+            refreshing = true;
+        });
     });
 } else {
     console.log('Service Workers not supported in this browser');

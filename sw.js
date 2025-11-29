@@ -1,4 +1,6 @@
-const CACHE_NAME = 'guappo-1.2';
+import { GlobalSettings } from './src/game/GlobalSettings.js';
+
+const CACHE_NAME = `guappo-${GlobalSettings.version}`;
 const urlsToCache = [
   './',
   './index.html',
@@ -11,6 +13,7 @@ const urlsToCache = [
   './src/game/Enum.js',
   './src/game/EventEmitter.js',
   './src/game/GameLogic.js',
+  './src/game/GlobalSettings.js',
   './src/game/Level.js',
   './src/game/SaveGameHelper.js',
   './src/game/Utils.js',
@@ -21,7 +24,9 @@ const urlsToCache = [
   './src/scenes/SceneGameover.js',
   './src/scenes/SceneHome.js',
   './src/scenes/SceneMain.js',
+  './src/scenes/ScenePreload.js',
   './src/scenes/SceneScores.js',
+  './src/scenes/SceneSettings.js',
   './src/solver/Solver.js',
   './src/ui/Button.js',
   './src/ui/DragFeedback.js',
@@ -57,12 +62,32 @@ const urlsToCache = [
   './assets/images/wappo.png'
 ];
 
-// Écouter les messages de la page principale
+// Listen for messages from the main page
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'GET_CACHE_VERSION') {
-    // Répondre avec la version du cache
+    // Reply with the cache version
     event.ports[0].postMessage({ cacheVersion: CACHE_NAME });
   }
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+self.addEventListener('activate', event => {
+  console.log('Service Worker activating...');
+  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
 });
 
 self.addEventListener('install', event => {

@@ -11,6 +11,7 @@ import { Solver } from '../solver/Solver.js';
 import { SaveGameHelper } from '../game/SaveGameHelper.js';
 import { IconButton } from '../ui/IconButton.js';
 import { SolverDialog } from '../ui/SolverDialog.js';
+import { GlobalSettings } from '../game/GlobalSettings.js';
 
 export class SceneMain extends Phaser.Scene {
 
@@ -44,7 +45,7 @@ export class SceneMain extends Phaser.Scene {
 
     joystick_dir; // Joystick for directional input
     isAnimating = false; // Flag to prevent input during animation
-    musicEnabled = true; // Music state
+    // musicEnabled = true; // Music state - Now using GlobalSettings
     inputDisabled = false; // Flag to prevent all input during solver calculation
 
     // Utility methods to centralize control management
@@ -129,13 +130,13 @@ export class SceneMain extends Phaser.Scene {
         this.load.image('wappo', 'assets/images/wappo.png');
         this.load.image('friend_1', 'assets/images/friend1.png');
         this.load.image('friend_2', 'assets/images/friend2.png');
-        // Charger les ennemis verticaux comme spritesheet avec 2 frames : 0=monte, 1=descend
+        // Load vertical enemies as spritesheet with 2 frames: 0=up, 1=down
         this.load.spritesheet('enemy_V_1', 'assets/images/ev1.png', { frameWidth: 200, frameHeight: 200 });
         this.load.spritesheet('enemy_V_2', 'assets/images/ev2.png', { frameWidth: 200, frameHeight: 200 });
-        // Charger l'ennemi horizontal 1 comme spritesheet avec 2 frames : 0=droite, 1=gauche
+        // Load horizontal enemy 1 as spritesheet with 2 frames: 0=right, 1=left
         this.load.spritesheet('enemy_H_1', 'assets/images/eh1.png', { frameWidth: 200, frameHeight: 200 });
         this.load.spritesheet('enemy_H_2', 'assets/images/eh2.png', { frameWidth: 200, frameHeight: 200 });
-        // Charger les ennemis diagonaux comme spritesheet avec 4 frames : 0=NO, 1=NE, 2=SE, 3=SO
+        // Load diagonal enemies as spritesheet with 4 frames: 0=NW, 1=NE, 2=SE, 3=SW
         this.load.spritesheet('enemy_D_1', 'assets/images/ed1.png', { frameWidth: 200, frameHeight: 200 });
         this.load.spritesheet('enemy_D_2', 'assets/images/ed2.png', { frameWidth: 200, frameHeight: 200 });
         // Load icon images for header buttons
@@ -263,18 +264,18 @@ export class SceneMain extends Phaser.Scene {
             this.updateMovesCounter();
         });
         
-        // Note: gameWon/gameOver n'affichent plus directement l'écran de fin
-        // Les événements sont émis mais l'affichage est géré dans fireUserInput
-        // après que toutes les animations soient terminées
+        // Note: 'gameWon'/'gameOver' no longer directly display the end screen
+        // Events are emitted, but the UI display is handled in fireUserInput
+        // after all movement animations have completed
         
         this.gameLogic.on('gameWon', (data) => {
             console.log('Game won event received, waiting for animations to complete');
-            // Les actions sont maintenant gérées après les animations dans fireUserInput
+            // Actions are now handled after animations complete in fireUserInput
         });
         
         this.gameLogic.on('gameOver', (data) => {
             console.log('Game over event received, waiting for animations to complete');
-            // Les actions sont maintenant gérées après les animations dans fireUserInput
+            // Actions are now handled after animations in fireUserInput
         });
     }
     
@@ -522,6 +523,10 @@ export class SceneMain extends Phaser.Scene {
         this.homeIcon = new IconButton(this, ['home'], 0, 0, 1.0, () => this.fireGoHome());
         this.reloadIcon = new IconButton(this, ['replay'], 0, 0, 1.0, () => this.reloadLevel());
         this.musicIcon = new IconButton(this, ['volume_on', 'volume_off'], 0, 0, 1.0, () => this.toggleMusic());
+        // Sync music icon state with GlobalSettings
+        if (this.musicIcon) {
+            this.musicIcon.updateTexture(GlobalSettings.musicEnabled ? 0 : 1);
+        }
         this.hintIcon = new IconButton(this, ['hint'], 0, 0, 1.0, () => this.runSolver());
 
         if (this.isLandscape) {
@@ -792,7 +797,7 @@ export class SceneMain extends Phaser.Scene {
             this.runSolver();
         });
 
-        // Détection du swipe tactile pour mobile
+        // Detect touch swipe gestures for mobile
         const cancelDragFeedback = pointer => {
             if (!this.dragFeedbackEnabled) return;
             if (this.dragFeedback) {
@@ -828,7 +833,7 @@ export class SceneMain extends Phaser.Scene {
             const dy = pointer.y - this._touchStart.y;
             const absDx = Math.abs(dx);
             const absDy = Math.abs(dy);
-            // Seuil minimal pour considérer un swipe
+            // Minimum threshold to consider a swipe
             const threshold = 50;
             if (absDx < threshold && absDy < threshold) {
                 this._touchStart = null;
@@ -862,17 +867,17 @@ export class SceneMain extends Phaser.Scene {
         // Always save score for actual player moves (not solver simulations)
         const gameStatus = this.gameLogic.simulateTurn(dir, true);
         
-        // IMPORTANT: Toujours animer les mouvements avant de terminer le tour
-        // Pour que les animations se déroulent correctement avant d'afficher les messages
+        // IMPORTANT: Always animate moves before ending the turn
+        // This ensures animations complete before showing end-of-turn messages
         await this.animateMoves(this.gameLogic.lastTurnMoves);
         
-        // Pour les tours normaux, on active les inputs
+            // For normal turns, re-enable inputs
         if (!gameStatus.isWon && !gameStatus.isLost) {
             this.enableAllControls();
             this.isAnimating = false;
         } else {
-            // Pour les fins de jeu (victoire/défaite), on lance les événements
-            // de fin de jeu APRÈS l'animation
+            // For end-of-game (win/lose), trigger end-of-game flow
+            // AFTER animations have completed
             if (gameStatus.isWon) {
                 this.scene.pause();
                 this.scene.launch("SceneGameover", {
@@ -890,7 +895,7 @@ export class SceneMain extends Phaser.Scene {
                 });
             }
             
-            // Assurez-vous que les contrôles sont réactivés après la fin du jeu
+            // Ensure controls are re-enabled after end of game
             this.enableAllControls();
             this.isAnimating = false;
         }
@@ -1109,10 +1114,10 @@ export class SceneMain extends Phaser.Scene {
         this.gridCells = null;
     }
 
-    // Cette méthode n'est plus utilisée car remplacée par les événements du GameLogic
-    // Elle est conservée pour compatibilité avec d'autres parties du code
+    // This method is no longer used because GameLogic events replace it
+    // It is kept for compatibility with other parts of the code
     updateGameStatus(died, won) {
-        // Fonction vide car les événements remplacent cette fonctionnalité
+        // No-op because events now provide this functionality
         console.log("updateGameStatus called but is now deprecated");
     }
 
@@ -1121,16 +1126,16 @@ export class SceneMain extends Phaser.Scene {
     }
 
     toggleMusic() {
-        this.musicEnabled = !this.musicEnabled;
-        console.log('Music toggled:', this.musicEnabled ? 'ON' : 'OFF');
+        GlobalSettings.toggleMusic();
+        console.log('Music toggled:', GlobalSettings.musicEnabled ? 'ON' : 'OFF');
         
         // Update icon texture
         if (this.musicIcon) {
-            this.musicIcon.updateTexture(this.musicEnabled ? 0 : 1);
+            this.musicIcon.updateTexture(GlobalSettings.musicEnabled ? 0 : 1);
         }
         
         // TODO: Implement actual music control logic here
-        // Example: this.sound.mute = !this.musicEnabled;
+        // Example: this.sound.mute = !GlobalSettings.musicEnabled;
     }
 
     showConfirmDialog(callback) {

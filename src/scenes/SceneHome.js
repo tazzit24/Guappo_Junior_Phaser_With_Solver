@@ -25,6 +25,7 @@ export class SceneHome extends Phaser.Scene {
         this.load.image('wappo', 'assets/images/wappo.png'); // Bear head for slider bullet
         this.load.image('medal_icon', 'assets/images/medal.png');
         this.load.image('play_circle_icon', 'assets/images/play_circle.png');
+        this.load.image('settings_icon', 'assets/images/settings.png');
     }
 
     create() {
@@ -47,7 +48,7 @@ export class SceneHome extends Phaser.Scene {
         // Logo
         this.logo = this.add.image(centerX, height * 0.15, 'logo').setOrigin(0.5, 0.5);
 
-        // Slider - création avec config temporaire, sera configuré dans updateLayout
+        // Slider - created with a temporary config, will be configured in updateLayout
         const levelIds = this.levelsJson.levels.map(lvl => Number(lvl.level)).filter(n => !isNaN(n));
         const minLevelId = Math.min(...levelIds);
         const maxLevelId = Math.max(...levelIds);
@@ -58,31 +59,32 @@ export class SceneHome extends Phaser.Scene {
         let preselectLevel = highestSavedLevel < maxLevelId ? highestSavedLevel + 1 : highestSavedLevel;
         const sliderWidth = width * 0.85;
 
-        // Configuration complète avec valeurs par défaut pour l'initialisation
+        // Full configuration with default values for initialization
         const sliderConfig = {
             handleTexture: 'wappo',
             textPrefix: 'Level: ',
-            sliderHeight: 60,  // Valeur par défaut
-            handleSize: 96,    // Valeur par défaut
+            sliderHeight: 60,  // Default value
+            handleSize: 96,    // Default value
             showProgress: true,
             progressColor: 0x4a90e2,
             progressAlpha: 0.3,
             trackColor: 0x1a1a2e,
             textStyle: {
-                fontSize: '32px',  // Valeur par défaut
+                fontSize: '32px',  // Default value
                 fontFamily: '"Arial Black", Gadget, sans-serif',
                 color: '#4a90e2',
                 stroke: '#000000',
-                strokeThickness: 3  // Valeur par défaut
+                strokeThickness: 3  // Default value
             },
-            textOffset: -80  // Valeur par défaut
+            textOffset: -80  // Default value
         };
 
         this.levelSlider = new SpaceSlider(this, centerX, formY, sliderWidth, minLevelId, maxLevelId, preselectLevel, sliderConfig);
 
-        // Boutons : encapsulation RexUI
+        // Buttons: RexUI encapsulation
         this.button_play = new MyRexUIButton(this, 'Play', 'play_circle_icon', () => this.launchLevel());
         this.button_scores = new MyRexUIButton(this, 'Scores', 'medal_icon', () => this.openScores());
+        this.button_settings = new MyRexUIButton(this, 'Settings', 'settings_icon', () => this.openSettings());
 
         this.updateLayout();
     }
@@ -98,7 +100,7 @@ export class SceneHome extends Phaser.Scene {
         const logoScale = Math.min(width / 800, height / 600) * 0.75;
         this.logo.setScale(logoScale);
 
-        // Slider - mise à jour de layout uniquement (tailles/positions)
+        // Slider - update layout only (sizes/positions)
         const sliderWidth = width * 0.85;
         const sliderFontSize = Math.max(Math.min(Math.round(height * 0.05), 120), 24);
         const sliderLayoutConfig = {
@@ -112,7 +114,7 @@ export class SceneHome extends Phaser.Scene {
         };
         this.levelSlider.resize(centerX, formY, sliderWidth, sliderLayoutConfig);
 
-        // Play & Scores buttons (mise en forme et positionnement)
+        // Play & Scores buttons (styling and positioning)
         const buttonFontSize = Math.max(Math.min(Math.round(height * 0.08), 128), 32);
         const buttonWidth = Math.max(Math.min(width * 0.55, 720), 520);
         const buttonHeight = Math.round(buttonFontSize * 1.4);
@@ -123,9 +125,11 @@ export class SceneHome extends Phaser.Scene {
 
         this.button_play.refreshLayout(buttonFontSize, buttonWidth, buttonHeight);
         this.button_scores.refreshLayout(buttonFontSize, buttonWidth, buttonHeight);
+        this.button_settings.refreshLayout(buttonFontSize, buttonWidth, buttonHeight);
 
         this.button_play.setPosition(leftX, firstButtonCenterY);
         this.button_scores.setPosition(leftX, firstButtonCenterY + buttonHeight + buttonSpacing);
+        this.button_settings.setPosition(leftX, firstButtonCenterY + (buttonHeight + buttonSpacing) * 2);
     }
     
     handleResize() {
@@ -167,6 +171,12 @@ export class SceneHome extends Phaser.Scene {
         if (this.button_scores) {
             this.button_scores.destroy();
             this.button_scores = null;
+        }
+
+        // Clean up settings button
+        if (this.button_settings) {
+            this.button_settings.destroy();
+            this.button_settings = null;
         }
         
         this.input.keyboard.off('keydown-ENTER');
@@ -240,5 +250,9 @@ export class SceneHome extends Phaser.Scene {
 
     openScores() {
         this.scene.start('SceneScores');
+    }
+
+    openSettings() {
+        this.scene.start('SceneSettings');
     }
 }

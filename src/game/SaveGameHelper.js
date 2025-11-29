@@ -1,9 +1,9 @@
-// Fichier SaveGameHelper.js
-// Centralise la logique de sauvegarde/chargement des scores
+// File SaveGameHelper.js
+// Centralizes score save/load logic
 
 export class SaveGameHelper {
     
-    // Retourne l'objet JSON complet des scores, ou un objet vide s'il n'existe pas
+    // Returns the full scores JSON object, or an empty object if none exists
     static getScoresObj() {
         try {
             return JSON.parse(window.localStorage.getItem('scores') || '{}');
@@ -12,7 +12,7 @@ export class SaveGameHelper {
         }
     }
 
-    // Sauvegarde le score pour un niveau donné
+    // Save score for a given level
     static saveScore(levelId, score) {
         const now = new Date().toISOString();
         let scoresObj = this.getScoresObj();
@@ -37,7 +37,7 @@ export class SaveGameHelper {
         window.localStorage.setItem('scores', JSON.stringify(scoresObj));
     }
 
-    // Retourne le plus haut niveau sauvegardé (Integer), ou null si aucun niveau sauvegardé
+    // Returns the highest saved level (integer), or null if none saved
     static getHighestSavedLevel() {
         const scoresObj = SaveGameHelper.getScoresObj();
         if (!scoresObj.levels) return null;
@@ -47,32 +47,32 @@ export class SaveGameHelper {
         return Math.max(...keys.map(k => parseInt(k, 10)).filter(n => !isNaN(n)));
     }
 
-    // Retourne l'objet json du score pour un niveau donné, ou null si pas de score
+    // Returns the score JSON object for a given level, or null if none
     static getLevelScore(levelId) {
         const scoresObj = SaveGameHelper.getScoresObj();
         if (!scoresObj.levels) return null;
         return scoresObj.levels[String(levelId)] || null;
     }
 
-    /* Retourne le score corrigé à afficher (1 si <= 0 pour éviter les scores nuls ou négatifs)
-       Dans le jeu d'origine, on obtenait un gameover immédiat si le score tombait trop bas, en fonction du niveau de difficulté choisi.
-       Je ne veux pas reproduire ce comportement frustrant, tous les chemins mènent à Rome */
+     /* Return the adjusted display score (1 if <= 0 to avoid zero or negative scores)
+         In the original game, an immediate gameover occurred if the score fell too low, depending on the chosen difficulty.
+         I don't want to reproduce that frustrating behavior; all paths lead to Rome. */
     static getDisplayScore(score) {
         return score <= 0 ? 1 : score;
     }
 
-    // Calcule le score final (celui sauvegardé) en fonction des mouvements effectués et du score de base
+    // Calculate the final score (the one saved) based on moves performed and the base score
     static getCalculatedScore(moves, baseScore) {
         return baseScore - (moves - baseScore);
     }
 
-    // Recalcule le nombre de mouvements effectués en fonction du score calculé sauvegardé et du score de base (fait l'inverse de getCalculatedScore)
+    // Recompute the number of moves performed from the saved calculated score and the base score (inverse of getCalculatedScore)
     static getMovesFromScore(calculatedScore, baseScore) {
         return (baseScore - calculatedScore) + baseScore;
     }
 
     static clearScores() {
-        // TODO: supprimer les scores
+        // TODO: remove scores
         window.localStorage.removeItem('scores');
     }
 

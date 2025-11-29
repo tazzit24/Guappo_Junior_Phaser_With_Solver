@@ -7,35 +7,35 @@ export class SceneScores extends Phaser.Scene {
     }
 
     preload() {
-        // RexUI plugin est chargé globalement dans Main.js
+        // RexUI plugin is loaded globally in Main.js
     }
 
     create() {
-        // Écoute les événements de redimensionnement
+        // Listen for resize events
         this.scale.on('resize', this.handleResize, this);
-        // Référence directe au JSON du cache Phaser
+        // Direct reference to the Phaser cache JSON
         this.levelsJson = JSON.parse(this.cache.text.get('levels'));
-        // Configuration responsive
-        // Utilisation de this.scale.gameSize pour le layout responsive
-        // Pagination : 50 niveaux par page (calcul sans copie)
+        // Responsive configuration
+        // Using this.scale.gameSize for responsive layout
+        // Pagination: 50 levels per page (calculated without copying)
         this.currentPage = this.currentPage || 0;
         this.levelsPerPage = 50;
         const totalPlayableLevels = this.levelsJson.levels.reduce((count, level) => parseInt(level.level) > 0 ? count + 1 : count, 0);
         this.totalPages = Math.ceil(totalPlayableLevels / this.levelsPerPage);
         this.startIndex = this.currentPage * this.levelsPerPage;
         this.endIndex = this.startIndex + this.levelsPerPage;
-        // Calcul initial du layout responsive
+        // Initial responsive layout calculation
         this.calculateLayout();
-        // Création de la grille responsive d'abord (nécessaire pour calculer l'alignement)
+        // Create responsive grid first (needed to compute alignment)
         this.createResponsiveGrid();
-        // Création du container de navigation aligné à droite de la grille
+        // Create navigation container aligned to the right of the grid
         this.createNavContainer(this.startIndex, this.endIndex);
-        // Bouton retour aligné sur le bord gauche de la grille
+        // Back button aligned on the left edge of the grid
         this.createBackButton();
     }
 
     showLevelDetail(levelData) {
-        // Ferme le détail précédent s'il existe
+        // Close previous detail panel if it exists
         if (this.detailPanel) {
             this.detailPanel.destroy();
             this.detailPanel = null;
@@ -44,20 +44,20 @@ export class SceneScores extends Phaser.Scene {
         const gameHeight = this.scale.gameSize.height;
         const panelWidth = Math.min(gameWidth * 0.85, 700);
         const panelHeight = Math.min(gameHeight * 0.7, 520);
-        // Panneau de détail
+        // Detail panel
         this.detailPanel = this.add.container(gameWidth / 2, gameHeight / 2);
-        // Fond semi-transparent
+        // Semi-transparent background
         const overlay = this.add.rectangle(0, 0, gameWidth, gameHeight, 0x000000, 0.7)
             .setInteractive()
             .on('pointerdown', () => {
                 this.detailPanel.destroy();
                 this.detailPanel = null;
             });
-        // Panneau principal
+        // Main panel
         const bg = this.add.rectangle(0, 0, panelWidth, panelHeight, 0x1a1a2e)
             .setStrokeStyle(2, 0x4a90e2);
         
-        // Titre du niveau - x4 police détail
+        // Level title - large font
         const titleFontSize = Math.max(Math.round(panelHeight * 0.12), 36);
         const title = this.add.text(0, -panelHeight/2 + 80, `Level ${levelData.levelId}`, {
             fontSize: titleFontSize + 'px',
@@ -69,9 +69,9 @@ export class SceneScores extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // Info font size must be defined before use
-        const infoFontSize = Math.max(Math.round(titleFontSize * 0.22), 36); // divisé par 2
+        const infoFontSize = Math.max(Math.round(titleFontSize * 0.22), 36); // divided by 2
 
-        // Affichage du Target
+        // Display the target
         let targetText = null;
         if (levelData && typeof levelData.baseScore !== 'undefined' && levelData.baseScore !== '') {
             targetText = this.add.text(0, 0, `Target: ${levelData.baseScore}`, {
@@ -82,12 +82,12 @@ export class SceneScores extends Phaser.Scene {
                 align: 'center',
             }).setOrigin(0.5);
         }
-        // Correction : positionne targetText juste sous le titre, à l'intérieur du panel
+        // Fix: position targetText just below the title, inside the panel
         if (targetText) {
             targetText.setY(title.y + title.height/2 + targetText.height/2 + 12);
         }
 
-        // Informations du score - format compact sur 2 lignes avec dates à côté
+        // Score information - compact format on 2 lines with dates
         let infoText = '';
         if (levelData && (levelData.scoreData && (levelData.scoreData.lastScore !== undefined || typeof levelData.scoreData.bestScore !== 'undefined'))) {
             let bestLine = '- Best: ';
@@ -111,12 +111,12 @@ export class SceneScores extends Phaser.Scene {
             lineSpacing: Math.round(infoFontSize * 0.38)
         }).setOrigin(0.5);
 
-        // Offset vertical pour espacer du titre
+        // Vertical offset to separate from the title
         let infoYOffset = 95;
         info.y = title.y + titleFontSize/2 + info.height/2 + infoYOffset;
 
-        // Boutons - x4 police
-        const btnFontSize = Math.max(Math.round(titleFontSize * 0.8), 32); // divisé par 2
+        // Buttons - large font
+        const btnFontSize = Math.max(Math.round(titleFontSize * 0.8), 32); // divided by 2
         const btnY = panelHeight/2 - 80;
         const playBtn = this.add.text(-panelWidth/4, btnY, (!levelData.scoreData) ? 'Play' : 'Replay', {
             fontSize: btnFontSize + 'px',
@@ -160,23 +160,23 @@ export class SceneScores extends Phaser.Scene {
     calculateLayout() {
         const gameWidth = this.scale.gameSize.width;
         const gameHeight = this.scale.gameSize.height;
-        // Barre de navigation responsive - taille minimum garantie
+        // Responsive navigation bar - minimum height guaranteed
         this.navHeight = Math.max(Math.round(gameHeight * 0.10), 80);
         this.navY = this.navHeight / 2;
         this.centerX = gameWidth / 2;
         this.navFontSize = Math.max(Math.round(this.navHeight * 0.45), 28);
-        // 2. Espacement horizontal de base (sera ajusté dynamiquement dans create)
+        // 2. Base horizontal spacing (will be adjusted dynamically in create)
         this.navBtnOffset = Math.max(Math.round(gameWidth * 0.18), 150);
         this.homeBtnFontSize = this.navFontSize;
         this.navBtnFontSize = this.navFontSize;
-        // 1. Réduit la taille du titre
+        // 1. Reduce the title size
         this.titleFontSize = Math.round(this.navFontSize * 0.6);
-        // La position exacte sera ajustée dynamiquement dans create()
+        // Exact position will be adjusted dynamically in create()
         this.titleX = this.centerX;
         this.homeBtnX = this.centerX - this.navBtnOffset * 1.5;
         this.prevBtnX = this.centerX - this.navBtnOffset * 0.5;
         this.nextBtnX = this.centerX + this.navBtnOffset * 0.5;
-        // Styles centralisés pour les boutons/navigation
+        // Centralized styles for buttons/navigation
         this.homeBtnStyle = {
             fontSize: this.homeBtnFontSize + 'px',
             fontFamily: 'Arial',
@@ -199,11 +199,11 @@ export class SceneScores extends Phaser.Scene {
             strokeThickness: 3
         };
         
-        // Calculs pour la grille vraiment responsive
+        // Calculations for a truly responsive grid
         this.availableHeight = gameHeight - this.navHeight - 40;
         this.availableWidth = gameWidth - 40;
 
-        // Calcul du nombre d'éléments à afficher pour cette page
+        // Compute the number of items to display on this page
         const itemsThisPage = Math.min(this.levelsPerPage, Math.max(0, 
             this.levelsJson.levels.reduce((count, level) => 
                 parseInt(level.level) > 0 ? count + 1 : count, 0) - this.startIndex));
@@ -221,16 +221,16 @@ export class SceneScores extends Phaser.Scene {
                 }
             }
             this.cols = bestCols;
-            this.cellSize = Math.min((bestCellSize ? bestCellSize + 5 : 115), 145); // +5px uniquement sur la case
+            this.cellSize = Math.min((bestCellSize ? bestCellSize + 5 : 115), 145); // +5px only on the cell
             this.rows = Math.max(1, Math.ceil(itemsThisPage / this.cols));
         } else {
-            // Fallback pour page vide
+            // Fallback for empty page
             this.cols = 1;
             this.rows = 1;
             this.cellSize = 115;
         }
 
-        // Le panel occupe toute la hauteur disponible, la grille scroll si besoin
+        // Panel occupies the available height; the grid will scroll if needed
         this.panelWidth = this.cellSize * this.cols + (this.cols - 1) * 10;
         this.panelHeight = this.availableHeight;
         this.panelY = this.navHeight + 20 + this.panelHeight / 2;
@@ -242,7 +242,7 @@ export class SceneScores extends Phaser.Scene {
     }
 
     updateLayout() {
-        // Mise à jour complète du panel et recréation de la grille
+        // Full panel update and grid recreation
         if (this.panel) {
             this.panel.destroy();
             this.createResponsiveGrid();
@@ -254,7 +254,7 @@ export class SceneScores extends Phaser.Scene {
     createResponsiveGrid() {
         const rexUI = this.rexUI;
         
-        // Création du panel avec les nouvelles dimensions
+        // Create the panel with the new dimensions
         this.panel = rexUI.add.scrollablePanel({
             x: this.centerX,
             y: this.panelY,
@@ -282,7 +282,7 @@ export class SceneScores extends Phaser.Scene {
             space: { left: 10, right: 10, top: 10, bottom: 10 },
         }).layout();
 
-        // Remplissage de la grille - génération à la volée sans copies
+        // Fill the grid - generate items on the fly without copying
         const gridSizer = this.panel.getElement('panel');
         let validLevelCount = 0;
         let addedToGrid = 0;
@@ -301,13 +301,13 @@ export class SceneScores extends Phaser.Scene {
                     bestScore = scoreData.bestScore;
                 }
 
-                // Ajout basescore depuis detail
+                    // Add baseScore from level detail
                 let baseScore = 0;
                 if (level.detail && typeof level.detail.basescore !== 'undefined') {
                     baseScore = Number(level.detail.basescore);
                 }
 
-                // Calcul du nombre d'étoiles :
+                // Compute number of stars:
                 let stars = 0;
                 if (scoreData) {
                     if (bestScore > 0 && bestScore >= baseScore) {
@@ -317,9 +317,9 @@ export class SceneScores extends Phaser.Scene {
                     }
                 }
 
-                // Case avec taille responsive
+                // Cell with responsive size
                 const bg = this.add.rectangle(0, 0, this.cellSize, this.cellSize, 0x2a2a3a).setStrokeStyle(1, 0xffffff);
-                // Affichage du numéro de niveau (ligne 1)
+                // Display level number (line 1)
                 const fontSize = Math.max(Math.round(this.cellSize * 0.27), 18);
                 const lineSpacing = Math.max(Math.round(this.cellSize * 0.12), 6);
                 const labelNum = this.add.text(0, -fontSize * 0.7, `${levelId}`, {
@@ -331,10 +331,10 @@ export class SceneScores extends Phaser.Scene {
                     wordWrap: { width: this.cellSize - 4, useAdvancedWrap: true }
                 }).setOrigin(0.5, 0.5);
 
-                // Affichage des étoiles (ligne 2, superposée, chaque étoile = objet texte)
+                // Display stars (line 2, overlaid, each star is a text object)
                 const starFont = Math.round(fontSize * 0.95);
                 const yStars = fontSize * 0.85;
-                // Étoile 1
+                // Star 1
                 const star1 = this.add.text(-starFont * 0.6, yStars, stars >= 1 ? '★' : '☆', {
                     fontSize: starFont + 'px',
                     fontFamily: 'Arial',
@@ -342,7 +342,7 @@ export class SceneScores extends Phaser.Scene {
                     fontStyle: 'bold',
                     align: 'center',
                 }).setOrigin(0.5, 0.5);
-                // Étoile 2
+                // Star 2
                 const star2 = this.add.text(starFont * 0.6, yStars, stars >= 2 ? '★' : '☆', {
                     fontSize: starFont + 'px',
                     fontFamily: 'Arial',
@@ -371,7 +371,7 @@ export class SceneScores extends Phaser.Scene {
             validLevelCount++;
         }
         
-        // Cases vides
+        // Empty cells
         const totalCells = this.cols * this.rows;
         for (let i = addedToGrid; i < totalCells; i++) {
             gridSizer.add(this.add.rectangle(0, 0, this.cellSize, this.cellSize, 0x333333, 0));
@@ -379,7 +379,7 @@ export class SceneScores extends Phaser.Scene {
         
         this.panel.layout();
         this.panel.setChildrenInteractive({ targets: [this.panel.getElement('panel')] });
-        // Handler du clic sur une case (dans createResponsiveGrid)
+        // Click handler for a cell (in createResponsiveGrid)
         this.panel.on('child.click', (child, pointer, event) => {
             if (child.levelId !== undefined) {
                 this.showLevelDetail(child);
@@ -388,10 +388,10 @@ export class SceneScores extends Phaser.Scene {
     }
 
     createBackButton() {
-        // Calcul de la position du bord gauche de la grille
+        // Compute the left edge position of the grid
         const panelLeft = this.panel.x - this.panelWidth / 2;
         
-        // Création du bouton retour avec icône flèche
+        // Create back button with arrow icon
         this.backBtn = this.add.text(panelLeft, this.navY, '↩', this.homeBtnStyle)
             .setOrigin(0.5)
             .setInteractive({ cursor: 'pointer' })
@@ -401,7 +401,7 @@ export class SceneScores extends Phaser.Scene {
     }
     
     createNavContainer(startIndex, endIndex) {
-        // Détruit le container existant s'il y en a un
+        // Destroy existing container if any
         if (this.navContainer) {
             this.navContainer.destroy();
         }
@@ -409,13 +409,13 @@ export class SceneScores extends Phaser.Scene {
         const scoresLabel = 'Scores';
         const rangeLabel = `${startIndex + 1}-${endIndex}`;
         
-        // Création des éléments de navigation
+        // Create navigation elements
         this.prevBtn = this.add.text(0, 0, '◀', this.navBtnStyle).setOrigin(0.5);
         this.titleScores = this.add.text(0, 0, scoresLabel, this.titleStyle).setOrigin(0, 0.5);
         this.titleRange = this.add.text(0, 0, rangeLabel, this.titleStyle).setOrigin(0, 0.5);
         this.nextBtn = this.add.text(0, 0, '▶', this.navBtnStyle).setOrigin(0.5);
         
-        // Positionnement relatif des éléments
+        // Relative positioning of elements
         const gap = 18;
         const arrowPad = 12;
         
@@ -424,13 +424,13 @@ export class SceneScores extends Phaser.Scene {
         this.titleRange.x = this.titleScores.x + this.titleScores.width + gap;
         this.nextBtn.x = this.titleRange.x + this.titleRange.width + this.nextBtn.width/2 + arrowPad;
         
-        // Création du container
+        // Create the container
         this.navContainer = this.add.container(0, this.navY, [this.prevBtn, this.titleScores, this.titleRange, this.nextBtn]);
         
-        // Positionnement du container aligné à droite de la grille
+        // Position the container aligned to the right of the grid
         this.updateNavContainerPosition();
         
-        // Gestion des états des boutons
+        // Manage button states
         this.updateNavButtonStates();
     }
     
@@ -445,7 +445,7 @@ export class SceneScores extends Phaser.Scene {
     updateNavButtonStates() {
         if (!this.prevBtn || !this.nextBtn) return;
         
-        // Bouton précédent
+        // Previous button
         if (this.currentPage > 0) {
             this.prevBtn.setColor('#4a90e2')
                 .setInteractive({ cursor: 'pointer' })
@@ -461,7 +461,7 @@ export class SceneScores extends Phaser.Scene {
                 .removeAllListeners();
         }
         
-        // Bouton suivant
+        // Next button
         if (this.currentPage < this.totalPages - 1) {
             this.nextBtn.setColor('#4a90e2')
                 .setInteractive({ cursor: 'pointer' })
@@ -486,7 +486,7 @@ export class SceneScores extends Phaser.Scene {
     }
 
     onSceneShutdown() {
-        // Nettoie l'écouteur de redimensionnement
+        // Clean up resize listener
         this.scale.off('resize', this.handleResize, this);
     }
 }
