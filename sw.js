@@ -1,5 +1,5 @@
 // Update this version manually when you deploy a new version
-const APP_VERSION = '1.0.5';
+const APP_VERSION = '1.0.6';
 const CACHE_NAME = `guappo-${APP_VERSION}`;
 const urlsToCache = [
   './',
@@ -97,32 +97,36 @@ self.addEventListener('install', event => {
         console.log('Caching files:', urlsToCache.length, 'files');
         // Cache files one by one and report progress
         let cached = 0;
-        return Promise.all(
-          urlsToCache.map(url => {
-            return cache.add(url)
-              .then(() => {
-                cached++;
-                // Broadcast progress to all clients
-                self.clients.matchAll().then(clients => {
-                  clients.forEach(client => {
-                    client.postMessage({
-                      type: 'SW_CACHE_PROGRESS',
-                      completed: cached,
-                      total: urlsToCache.length
-                    });
+        const progressPromises = urlsToCache.map(url => {
+          return cache.add(url)
+            .then(() => {
+              cached++;
+              // Broadcast progress to all clients immediately (including uncontrolled ones during install)
+              return self.clients.matchAll({ includeUncontrolled: true }).then(clients => {
+                if (clients.length === 0) {
+                    console.log('SW: No clients found to report progress');
+                }
+                clients.forEach(client => {
+                  // console.log('SW: Reporting progress to client', client.id);
+                  client.postMessage({
+                    type: 'SW_CACHE_PROGRESS',
+                    completed: cached,
+                    total: urlsToCache.length
                   });
                 });
-              })
-              .catch(err => {
-                console.error('Failed to cache:', url, err);
               });
-          })
-        );
+            })
+            .catch(err => {
+              console.error('Failed to cache:', url, err);
+            });
+        });
+        
+        return Promise.all(progressPromises);
       })
       .then(() => {
         console.log('All files cached successfully');
         // Broadcast completion
-        self.clients.matchAll().then(clients => {
+        return self.clients.matchAll({ includeUncontrolled: true }).then(clients => {
           clients.forEach(client => {
             client.postMessage({ type: 'SW_CACHE_COMPLETE' });
           });

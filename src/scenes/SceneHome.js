@@ -21,6 +21,11 @@ export class SceneHome extends Phaser.Scene {
     }
 
     preload() {
+        // Hide the initial HTML loader before showing scene progress bar
+        if (window.initialLoader) {
+            window.initialLoader.hide();
+        }
+        
         const progress = Utils.createLoadingProgressBar(this, { text: 'Loading...', backgroundColor: '#000000' });
         this.load.on('progress', progress.updateProgress);
         this.load.on('complete', progress.destroyProgress);
@@ -31,10 +36,9 @@ export class SceneHome extends Phaser.Scene {
         !this.textures.exists('medal_icon') ? this.load.image('medal_icon', 'assets/images/medal.png') : null;
         !this.textures.exists('play_circle_icon') ? this.load.image('play_circle_icon', 'assets/images/play_circle.png') : null;
         !this.textures.exists('settings_icon') ? this.load.image('settings_icon', 'assets/images/settings.png') : null;
-     }    create() {
-        if (window.initialLoader) {
-            window.initialLoader.hide();
-        }
+     }    
+     
+     create() {
         this.cameras.main.setBackgroundColor('#000000');
         // Parse levels JSON once and cache
         this.levelsJson = JSON.parse(this.cache.text.get('levels'));

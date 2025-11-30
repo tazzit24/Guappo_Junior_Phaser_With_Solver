@@ -15,8 +15,6 @@ window.initialLoader = initialLoader;
 function transitionToAssetLoading() {
     if (initialLoader && initialLoader.setMessage) {
         initialLoader.setMessage('Preparing assets…');
-        // Continue progress from where libraries left off
-        initialLoader.setProgress(0.5);
     }
 }
 
@@ -80,27 +78,25 @@ document.title = `${GlobalSettings.gameName} v${GlobalSettings.version}`;
 
 // PWA Registration and Logging
 if ('serviceWorker' in navigator) {
+    console.log('Main.js: Adding SW message listener');
     navigator.serviceWorker.addEventListener('message', (event) => {
+        console.log('Message from SW:', event.data);
         if (!event.data) {
             return;
         }
-        // Handle SW cache progress
+        // Handle SW cache progress (for future messages)
         if (event.data.type === 'SW_CACHE_PROGRESS') {
-            const loader = window.initialLoader;
-            if (loader) {
-                // Map SW cache progress (0–1) to 0–50% of total progress
-                const swProgress = Math.min(event.data.completed / event.data.total, 1);
-                loader.setProgress(swProgress * 0.5);
-            }
+            // Progress is now handled by the spinner animation
+            console.log(`SW Cache Progress: ${event.data.completed}/${event.data.total}`);
         } else if (event.data.type === 'SW_CACHE_COMPLETE') {
-            const loader = window.initialLoader;
-            if (loader) {
-                loader.setProgress(0.5);
-            }
+            console.log('SW Cache Complete');
         }
     });
 
-    window.addEventListener('load', function() {
+    // Function to register SW
+    const registerSW = () => {
+        console.log('Main.js: Starting SW registration...');
+        
         // Check if we're in dev mode (?dev=true)
         const urlParams = new URLSearchParams(window.location.search);
         const isDevMode = urlParams.get('dev') === 'true';
@@ -129,7 +125,14 @@ if ('serviceWorker' in navigator) {
                 console.log('Running as PWA:', isPWA);
                 
                 // Log registration status
-                console.log('Service Worker registration status:', registration.active ? 'active' : 'installing');
+                console.log('Service Worker registration status:', 
+                    registration.active ? 'active' : '', 
+                    registration.waiting ? 'waiting' : '', 
+                    registration.installing ? 'installing' : ''
+                );
+
+                // If SW is already active (and controlling), we can assume assets are cached
+                const loader = window.initialLoader;
 
                 // --- Update Management ---
                 
@@ -265,7 +268,15 @@ if ('serviceWorker' in navigator) {
             window.location.reload();
             refreshing = true;
         });
-    });
+    };
+
+    if (document.readyState === 'complete') {
+        console.log('Document already loaded, registering SW immediately');
+        registerSW();
+    } else {
+        console.log('Document not ready, waiting for load event');
+        window.addEventListener('load', registerSW);
+    }
 } else {
     console.log('Service Workers not supported in this browser');
 }
@@ -275,16 +286,8 @@ function createInitialLoaderController() {
     if (!loader) {
         return null;
     }
-    const percentEl = loader.querySelector('[data-loader-percent]');
     const titleEl = loader.querySelector('.title');
     return {
-        setProgress(value) {
-            if (!percentEl) {
-                return;
-            }
-            const bounded = Math.min(1, Math.max(0, value || 0));
-            percentEl.textContent = `${Math.round(bounded * 100)}%`;
-        },
         setMessage(text) {
             if (titleEl && typeof text === 'string') {
                 titleEl.textContent = text;

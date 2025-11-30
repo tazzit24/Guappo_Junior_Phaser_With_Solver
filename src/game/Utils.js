@@ -140,19 +140,25 @@ export class Utils {
         
         scene.cameras.main.setBackgroundColor(backgroundColor);
         
+        // Larger progress bar
+        const barWidth = Math.min(width * 0.7, 600);
+        const barHeight = Math.min(height * 0.08, 80);
+        const barX = width / 2 - barWidth / 2;
+        const barY = height / 2 + 40;
+        
         const progressBox = scene.add.graphics();
         progressBox.fillStyle(0x222222, 0.8);
-        progressBox.fillRect(width / 2 - 160, height / 2 - 25, 320, 50);
+        progressBox.fillRect(barX, barY, barWidth, barHeight);
         
         const progressBar = scene.add.graphics();
         
-        const loadingText = scene.add.text(width / 2, height / 2 - 50, text, {
-            font: '20px Arial',
+        const loadingText = scene.add.text(width / 2, height / 2 - 80, text, {
+            font: `bold ${Math.min(height * 0.08, 48)}px Arial`,
             color: '#ffffff'
         }).setOrigin(0.5, 0.5);
         
-        const percentText = scene.add.text(width / 2, height / 2, '0%', {
-            font: '18px Arial',
+        const percentText = scene.add.text(width / 2, height / 2 + barHeight / 2 + 40, '0%', {
+            font: `bold ${Math.min(height * 0.07, 40)}px Arial`,
             color: '#ffffff'
         }).setOrigin(0.5, 0.5);
 
@@ -160,7 +166,7 @@ export class Utils {
             percentText.setText(Math.round(value * 100) + '%');
             progressBar.clear();
             progressBar.fillStyle(0x4a90e2, 1);
-            progressBar.fillRect(width / 2 - 150, height / 2 - 15, 300 * value, 30);
+            progressBar.fillRect(barX + 2, barY + 2, (barWidth - 4) * value, barHeight - 4);
         };
         
         const destroyProgress = () => {
