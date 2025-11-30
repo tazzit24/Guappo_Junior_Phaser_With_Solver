@@ -85,6 +85,75 @@ export class Utils {
         return dialog;
     }
 
+    // Custom dialog for import confirmation with flexible text/buttons
+    static CreateCustomDialog(scene, options = {}) {
+        const {
+            titleText = 'Confirm',
+            contentText = 'Are you sure?',
+            confirmText = 'Yes',
+            cancelText = 'No',
+        } = options;
+
+        const { width, height } = scene.scale.gameSize;
+        const dialogScale = Math.min(width / 400, height / 300);
+        
+        var dialog = scene.rexUI.add.dialog({
+            background: scene.rexUI.add.roundRectangle(0, 0, 300 * dialogScale, 200 * dialogScale, 20, 0x1a1a2e),
+
+            title: scene.rexUI.add.label({
+                background: scene.rexUI.add.roundRectangle(0, 0, 100, 40, 20, 0x4a90e2),
+                text: scene.add.text(0, 0, titleText, {
+                    fontSize: Math.max(18 * dialogScale, 16) + 'px',
+                    color: '#FFFFFF'
+                }),
+                space: {
+                    left: 15,
+                    right: 15,
+                    top: 10,
+                    bottom: 10
+                }
+            }),
+
+            content: scene.add.text(0, 0, contentText, {
+                fontSize: Math.max(16 * dialogScale, 12) + 'px',
+                color: '#FFFFFF',
+                wordWrap: { width: 280 * dialogScale }
+            }),
+
+            actions: [
+                Utils.CreateLabel(scene, confirmText, dialogScale),
+                Utils.CreateLabel(scene, cancelText, dialogScale)
+            ],
+
+            space: {
+                title: 25,
+                content: 25,
+                action: 15,
+
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: 20,
+            },
+
+            align: {
+                actions: 'right',
+            },
+
+            expand: {
+                content: false,
+            }
+        })
+            .on('button.over', function (button, groupName, index, pointer, event) {
+                button.getElement('background').setStrokeStyle(1, 0xffffff);
+            })
+            .on('button.out', function (button, groupName, index, pointer, event) {
+                button.getElement('background').setStrokeStyle();
+            });
+
+        return dialog;
+    }
+
     static CreateLabel(scene, text, scale = 1) {
         return scene.rexUI.add.label({
             // width: 40,

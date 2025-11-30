@@ -62,8 +62,7 @@ var config = {
     },
     scale: {
         mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        pixelArt: false
+        autoCenter: Phaser.Scale.CENTER_BOTH
     },
     render: {
         pixelArt: false,
