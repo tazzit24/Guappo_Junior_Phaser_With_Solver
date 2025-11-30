@@ -1,4 +1,5 @@
 import { SaveGameHelper } from '../game/SaveGameHelper.js';
+import { Utils } from '../game/Utils.js';
 
 export class SceneScores extends Phaser.Scene {
    
@@ -7,6 +8,10 @@ export class SceneScores extends Phaser.Scene {
     }
 
     preload() {
+        const progress = Utils.createLoadingProgressBar(this, { text: 'Loading scores...', backgroundColor: '#000000' });
+        this.load.on('progress', progress.updateProgress);
+        this.load.on('complete', progress.destroyProgress);
+
         // RexUI plugin is loaded globally in Main.js
     }
 

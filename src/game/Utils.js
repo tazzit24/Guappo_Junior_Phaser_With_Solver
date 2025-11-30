@@ -123,7 +123,7 @@ export class Utils {
     static directionToWord(direction) {
         const wordMap = {
             'N': 'UP',
-            'S': 'DOWN', 
+            'S': 'DOWN',
             'E': 'RIGHT',
             'W': 'LEFT',
             'NE': 'UP-RIGHT',
@@ -132,6 +132,45 @@ export class Utils {
             'SW': 'DOWN-LEFT'
         };
         return wordMap[direction] || direction;
+    }
+
+    static createLoadingProgressBar(scene, options = {}) {
+        const { text = 'Loading...', backgroundColor = '#1a1a2e' } = options;
+        const { width, height } = scene.cameras.main;
+        
+        scene.cameras.main.setBackgroundColor(backgroundColor);
+        
+        const progressBox = scene.add.graphics();
+        progressBox.fillStyle(0x222222, 0.8);
+        progressBox.fillRect(width / 2 - 160, height / 2 - 25, 320, 50);
+        
+        const progressBar = scene.add.graphics();
+        
+        const loadingText = scene.add.text(width / 2, height / 2 - 50, text, {
+            font: '20px Arial',
+            color: '#ffffff'
+        }).setOrigin(0.5, 0.5);
+        
+        const percentText = scene.add.text(width / 2, height / 2, '0%', {
+            font: '18px Arial',
+            color: '#ffffff'
+        }).setOrigin(0.5, 0.5);
+
+        const updateProgress = (value) => {
+            percentText.setText(Math.round(value * 100) + '%');
+            progressBar.clear();
+            progressBar.fillStyle(0x4a90e2, 1);
+            progressBar.fillRect(width / 2 - 150, height / 2 - 15, 300 * value, 30);
+        };
+        
+        const destroyProgress = () => {
+            progressBar.destroy();
+            progressBox.destroy();
+            loadingText.destroy();
+            percentText.destroy();
+        };
+        
+        return { updateProgress, destroyProgress };
     }
 
 }

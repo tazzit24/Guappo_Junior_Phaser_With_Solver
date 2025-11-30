@@ -1,6 +1,7 @@
 'use strict';
 
 import { Button } from '../ui/Button.js';
+import { Utils } from '../game/Utils.js';
 
 export class SceneGameover extends Phaser.Scene {  
 
@@ -22,6 +23,10 @@ export class SceneGameover extends Phaser.Scene {
     }
 
     preload() {
+        const progress = Utils.createLoadingProgressBar(this, { text: 'Loading game over...', backgroundColor: '#000000' });
+        this.load.on('progress', progress.updateProgress);
+        this.load.on('complete', progress.destroyProgress);
+
         this.load.image('gameover', 'assets/images/gameover.png');
         this.load.image('gamewon', 'assets/images/gamewon.png');
         this.load.image('home_icon', 'assets/images/home.png');

@@ -121,30 +121,34 @@ export class SceneMain extends Phaser.Scene {
     }
 
     preload() {
-        this.load.text('levels', 'assets/levels/levels.json');
-        this.load.image('boardBackground', 'assets/images/BoardBackground.png');
-        this.load.image('vine', 'assets/images/vine.png');
-        this.load.image('gap', 'assets/images/gap.png');
-        this.load.image('trap', 'assets/images/trap.png');
-        this.load.image('beehive', 'assets/images/beehive.png');
-        this.load.image('wappo', 'assets/images/wappo.png');
-        this.load.image('friend_1', 'assets/images/friend1.png');
-        this.load.image('friend_2', 'assets/images/friend2.png');
+        const progress = Utils.createLoadingProgressBar(this, { text: 'Loading level...', backgroundColor: '#1a1a2e' });
+        this.load.on('progress', progress.updateProgress);
+        this.load.on('complete', progress.destroyProgress);
+
+        !this.cache.text.exists('levels') ? this.load.text('levels', 'assets/levels/levels.json') : null;
+        !this.textures.exists('boardBackground') ? this.load.image('boardBackground', 'assets/images/BoardBackground.png') : null;
+        !this.textures.exists('vine') ? this.load.image('vine', 'assets/images/vine.png') : null;
+        !this.textures.exists('gap') ? this.load.image('gap', 'assets/images/gap.png') : null;
+        !this.textures.exists('trap') ? this.load.image('trap', 'assets/images/trap.png') : null;
+        !this.textures.exists('beehive') ? this.load.image('beehive', 'assets/images/beehive.png') : null;
+        !this.textures.exists('wappo') ? this.load.image('wappo', 'assets/images/wappo.png') : null;
+        !this.textures.exists('friend_1') ? this.load.image('friend_1', 'assets/images/friend1.png') : null;
+        !this.textures.exists('friend_2') ? this.load.image('friend_2', 'assets/images/friend2.png') : null;
         // Load vertical enemies as spritesheet with 2 frames: 0=up, 1=down
-        this.load.spritesheet('enemy_V_1', 'assets/images/ev1.png', { frameWidth: 200, frameHeight: 200 });
-        this.load.spritesheet('enemy_V_2', 'assets/images/ev2.png', { frameWidth: 200, frameHeight: 200 });
+        !this.textures.exists('enemy_V_1') ? this.load.spritesheet('enemy_V_1', 'assets/images/ev1.png', { frameWidth: 200, frameHeight: 200 }) : null;
+        !this.textures.exists('enemy_V_2') ? this.load.spritesheet('enemy_V_2', 'assets/images/ev2.png', { frameWidth: 200, frameHeight: 200 }) : null;
         // Load horizontal enemy 1 as spritesheet with 2 frames: 0=right, 1=left
-        this.load.spritesheet('enemy_H_1', 'assets/images/eh1.png', { frameWidth: 200, frameHeight: 200 });
-        this.load.spritesheet('enemy_H_2', 'assets/images/eh2.png', { frameWidth: 200, frameHeight: 200 });
+        !this.textures.exists('enemy_H_1') ? this.load.spritesheet('enemy_H_1', 'assets/images/eh1.png', { frameWidth: 200, frameHeight: 200 }) : null;
+        !this.textures.exists('enemy_H_2') ? this.load.spritesheet('enemy_H_2', 'assets/images/eh2.png', { frameWidth: 200, frameHeight: 200 }) : null;
         // Load diagonal enemies as spritesheet with 4 frames: 0=NW, 1=NE, 2=SE, 3=SW
-        this.load.spritesheet('enemy_D_1', 'assets/images/ed1.png', { frameWidth: 200, frameHeight: 200 });
-        this.load.spritesheet('enemy_D_2', 'assets/images/ed2.png', { frameWidth: 200, frameHeight: 200 });
+        !this.textures.exists('enemy_D_1') ? this.load.spritesheet('enemy_D_1', 'assets/images/ed1.png', { frameWidth: 200, frameHeight: 200 }) : null;
+        !this.textures.exists('enemy_D_2') ? this.load.spritesheet('enemy_D_2', 'assets/images/ed2.png', { frameWidth: 200, frameHeight: 200 }) : null;
         // Load icon images for header buttons
-        this.load.image('home', 'assets/images/home.png');
-        this.load.image('replay', 'assets/images/replay.png');
-        this.load.image('volume_on', 'assets/images/volume_on.png');
-        this.load.image('volume_off', 'assets/images/volume_off.png');
-        this.load.image('hint', 'assets/images/hint.png');
+        !this.textures.exists('home') ? this.load.image('home', 'assets/images/home.png') : null;
+        !this.textures.exists('replay') ? this.load.image('replay', 'assets/images/replay.png') : null;
+        !this.textures.exists('volume_on') ? this.load.image('volume_on', 'assets/images/volume_on.png') : null;
+        !this.textures.exists('volume_off') ? this.load.image('volume_off', 'assets/images/volume_off.png') : null;
+        !this.textures.exists('hint') ? this.load.image('hint', 'assets/images/hint.png') : null;
     }
 
     create() {

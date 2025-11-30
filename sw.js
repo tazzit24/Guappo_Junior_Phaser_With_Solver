@@ -1,12 +1,12 @@
 // Update this version manually when you deploy a new version
-const APP_VERSION = '1.0.4';
+const APP_VERSION = '1.0.5';
 const CACHE_NAME = `guappo-${APP_VERSION}`;
 const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
   './src/Main.js',
-  './lib/phaser.js',
+  './lib/phaser.min.js',
   './lib/rexuiplugin.min.js',
   './assets/levels/levels.json',
   './favicon.ico',
@@ -24,7 +24,6 @@ const urlsToCache = [
   './src/scenes/SceneGameover.js',
   './src/scenes/SceneHome.js',
   './src/scenes/SceneMain.js',
-  './src/scenes/ScenePreload.js',
   './src/scenes/SceneScores.js',
   './src/scenes/SceneSettings.js',
   './src/solver/Solver.js',
@@ -96,9 +95,39 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('Caching files:', urlsToCache.length, 'files');
-        return cache.addAll(urlsToCache);
+        // Cache files one by one and report progress
+        let cached = 0;
+        return Promise.all(
+          urlsToCache.map(url => {
+            return cache.add(url)
+              .then(() => {
+                cached++;
+                // Broadcast progress to all clients
+                self.clients.matchAll().then(clients => {
+                  clients.forEach(client => {
+                    client.postMessage({
+                      type: 'SW_CACHE_PROGRESS',
+                      completed: cached,
+                      total: urlsToCache.length
+                    });
+                  });
+                });
+              })
+              .catch(err => {
+                console.error('Failed to cache:', url, err);
+              });
+          })
+        );
       })
-      .then(() => console.log('All files cached successfully'))
+      .then(() => {
+        console.log('All files cached successfully');
+        // Broadcast completion
+        self.clients.matchAll().then(clients => {
+          clients.forEach(client => {
+            client.postMessage({ type: 'SW_CACHE_COMPLETE' });
+          });
+        });
+      })
       .catch(error => console.error('Cache installation failed:', error))
   );
 });

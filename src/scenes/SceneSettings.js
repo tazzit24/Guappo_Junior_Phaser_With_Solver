@@ -1,5 +1,6 @@
 import { GlobalSettings } from '../game/GlobalSettings.js';
 import { MyRexUIButton } from '../ui/MyRexUIButton.js';
+import { Utils } from '../game/Utils.js';
 
 export class SceneSettings extends Phaser.Scene {
     constructor() {
@@ -7,6 +8,10 @@ export class SceneSettings extends Phaser.Scene {
     }
 
     preload() {
+        const progress = Utils.createLoadingProgressBar(this, { text: 'Loading settings...', backgroundColor: '#000000' });
+        this.load.on('progress', progress.updateProgress);
+        this.load.on('complete', progress.destroyProgress);
+
         // Load assets if not already loaded
         // We reuse assets from SceneHome/Main
     }

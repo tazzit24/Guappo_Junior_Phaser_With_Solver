@@ -3,6 +3,7 @@ import { Level } from '../game/Level.js';
 import { SpaceSlider } from '../ui/SpaceSlider.js';
 import { MyRexUIButton } from '../ui/MyRexUIButton.js';
 import { SaveGameHelper } from '../game/SaveGameHelper.js';
+import { Utils } from '../game/Utils.js';
 
 export class SceneHome extends Phaser.Scene {
     levelsJson;
@@ -20,15 +21,20 @@ export class SceneHome extends Phaser.Scene {
     }
 
     preload() {
-        this.load.text('levels', 'assets/levels/levels.json');
-        this.load.image('logo', 'assets/images/Guappo_Junior_logo.png');
-        this.load.image('wappo', 'assets/images/wappo.png'); // Bear head for slider bullet
-        this.load.image('medal_icon', 'assets/images/medal.png');
-        this.load.image('play_circle_icon', 'assets/images/play_circle.png');
-        this.load.image('settings_icon', 'assets/images/settings.png');
-    }
+        const progress = Utils.createLoadingProgressBar(this, { text: 'Loading...', backgroundColor: '#000000' });
+        this.load.on('progress', progress.updateProgress);
+        this.load.on('complete', progress.destroyProgress);
 
-    create() {
+        !this.cache.text.exists('levels') ? this.load.text('levels', 'assets/levels/levels.json') : null;
+        !this.textures.exists('logo') ? this.load.image('logo', 'assets/images/Guappo_Junior_logo.png') : null;
+        !this.textures.exists('wappo') ? this.load.image('wappo', 'assets/images/wappo.png') : null;
+        !this.textures.exists('medal_icon') ? this.load.image('medal_icon', 'assets/images/medal.png') : null;
+        !this.textures.exists('play_circle_icon') ? this.load.image('play_circle_icon', 'assets/images/play_circle.png') : null;
+        !this.textures.exists('settings_icon') ? this.load.image('settings_icon', 'assets/images/settings.png') : null;
+     }    create() {
+        if (window.initialLoader) {
+            window.initialLoader.hide();
+        }
         this.cameras.main.setBackgroundColor('#000000');
         // Parse levels JSON once and cache
         this.levelsJson = JSON.parse(this.cache.text.get('levels'));

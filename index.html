@@ -7,23 +7,163 @@
     <meta charset="UTF-8" />
     <title>Guappo Junior 1</title>
 
-    
-    <script type="text/javascript" src="lib/phaser.js"></script>
-    <script type="text/javascript" src="lib/rexuiplugin.min.js"></script>
-    
+    <script>
+        (function() {
+            function init() {
+                const loader = document.getElementById('initial-loader');
+                const percentEl = loader?.querySelector('[data-loader-percent]');
+                const titleEl = loader?.querySelector('.title');
+                
+                // Define libraries to load with relative weights (Phaser is much larger)
+                const libs = [
+                    { url: 'lib/phaser.min.js', weight: 0.9 },
+                    { url: 'lib/rexuiplugin.min.js', weight: 0.1 }
+                ];
+                
+                let loadedBytes = {};
+                let totalBytes = {};
+                
+                function updateProgress() {
+                    if (!percentEl) return;
+                    
+                    let weightedProgress = 0;
+                    let totalWeight = 0;
+                    
+                    libs.forEach(lib => {
+                        const loaded = loadedBytes[lib.url] || 0;
+                        const total = totalBytes[lib.url] || 0;
+                        const progress = total ? (loaded / total) : 0;
+                        weightedProgress += progress * lib.weight;
+                        totalWeight += lib.weight;
+                    });
+                    
+                    // Libraries represent the first 50% of loading
+                    const finalPercent = Math.round((weightedProgress / totalWeight) * 50);
+                    percentEl.textContent = finalPercent + '%';
+                }
 
-    <!-- Main Entry Point -->
-    <script type="module" src="./src/Main.js"></script>
+                function loadScript(lib) {
+                    return new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', lib.url, true);
+                        xhr.responseType = 'blob';
+                        
+                        xhr.onprogress = (e) => {
+                            if (e.lengthComputable) {
+                                loadedBytes[lib.url] = e.loaded;
+                                totalBytes[lib.url] = e.total;
+                                updateProgress();
+                            }
+                        };
+                        
+                        xhr.onload = (e) => {
+                            if (xhr.status === 200) {
+                                const total = totalBytes[lib.url] || e.total || e.loaded;
+                                loadedBytes[lib.url] = total;
+                                totalBytes[lib.url] = total;
+                                updateProgress();
+                                
+                                const url = URL.createObjectURL(xhr.response);
+                                const script = document.createElement('script');
+                                script.src = url;
+                                script.onload = () => {
+                                    URL.revokeObjectURL(url);
+                                    resolve();
+                                };
+                                document.head.appendChild(script);
+                            } else {
+                                reject(xhr.statusText);
+                            }
+                        };
+                        
+                        xhr.onerror = () => reject('Network error');
+                        xhr.send();
+                    });
+                }
+
+                async function boot() {
+                    if (titleEl) titleEl.textContent = 'Downloading libraries…';
+                    
+                    try {
+                        for (const lib of libs) {
+                            await loadScript(lib);
+                        }
+                        
+                        // Inject Main.js after libraries are ready
+                        const mainScript = document.createElement('script');
+                        mainScript.type = 'module';
+                        mainScript.src = './src/Main.js';
+                        document.body.appendChild(mainScript);
+                        
+                    } catch (err) {
+                        console.error('Boot failed:', err);
+                        if (titleEl) titleEl.textContent = 'Error loading game';
+                    }
+                }
+                
+                boot();
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+        })();
+    </script>
 
     <style type="text/css">
         body {
             margin: 0;
             background-color: rgb(41, 38, 38);
-        }                 
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+
+        #initial-loader {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgb(19 18 25 / 0.95);
+            color: #ffffff;
+            z-index: 9999;
+            transition: opacity 250ms ease;
+        }
+
+        #initial-loader.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #initial-loader .message {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #initial-loader .message .title {
+            font-size: clamp(1.1rem, 2vw, 1.6rem);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #b1c9ff;
+        }
+
+        #initial-loader .message .percent {
+            font-size: clamp(1.4rem, 3vw, 2rem);
+            font-weight: 600;
+        }
     </style>
 </head>
 
 <body>
+    <div id="initial-loader">
+        <div class="message">
+            <div class="title">Loading Guappo Junior…</div>
+            <div class="percent" data-loader-percent>0%</div>
+        </div>
+    </div>
     <div id="phaser-game"></div>
 </body>
 

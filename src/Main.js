@@ -6,8 +6,22 @@ import { SceneMain } from './scenes/SceneMain.js';
 import { SceneGameover } from './scenes/SceneGameover.js';
 import { SceneScores } from './scenes/SceneScores.js';
 import { SceneSettings } from './scenes/SceneSettings.js';
-import { ScenePreload } from './scenes/ScenePreload.js';
 import { GlobalSettings } from './game/GlobalSettings.js';
+
+const initialLoader = createInitialLoaderController();
+window.initialLoader = initialLoader;
+
+// Once libraries are loaded, transition message
+function transitionToAssetLoading() {
+    if (initialLoader && initialLoader.setMessage) {
+        initialLoader.setMessage('Preparing assets…');
+        // Continue progress from where libraries left off
+        initialLoader.setProgress(0.5);
+    }
+}
+
+// Since Main.js is injected dynamically after libraries, we can run this immediately
+transitionToAssetLoading();
 
 /*var isMobile = navigator.userAgent.indexOf("Mobile");
 if (isMobile == -1) {
@@ -34,7 +48,7 @@ if (isMobile == -1) {
 var config = {
     type: Phaser.AUTO,
     parent: 'phaser-game',
-    scene: [ScenePreload, SceneHome, SceneMain, SceneGameover, SceneScores, SceneSettings],
+    scene: [SceneHome, SceneMain, SceneGameover, SceneScores, SceneSettings],
     plugins: {
         global: [],
         scene: [
@@ -66,6 +80,26 @@ document.title = `${GlobalSettings.gameName} v${GlobalSettings.version}`;
 
 // PWA Registration and Logging
 if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (!event.data) {
+            return;
+        }
+        // Handle SW cache progress
+        if (event.data.type === 'SW_CACHE_PROGRESS') {
+            const loader = window.initialLoader;
+            if (loader) {
+                // Map SW cache progress (0–1) to 0–50% of total progress
+                const swProgress = Math.min(event.data.completed / event.data.total, 1);
+                loader.setProgress(swProgress * 0.5);
+            }
+        } else if (event.data.type === 'SW_CACHE_COMPLETE') {
+            const loader = window.initialLoader;
+            if (loader) {
+                loader.setProgress(0.5);
+            }
+        }
+    });
+
     window.addEventListener('load', function() {
         // Check if we're in dev mode (?dev=true)
         const urlParams = new URLSearchParams(window.location.search);
@@ -234,4 +268,34 @@ if ('serviceWorker' in navigator) {
     });
 } else {
     console.log('Service Workers not supported in this browser');
+}
+
+function createInitialLoaderController() {
+    const loader = document.getElementById('initial-loader');
+    if (!loader) {
+        return null;
+    }
+    const percentEl = loader.querySelector('[data-loader-percent]');
+    const titleEl = loader.querySelector('.title');
+    return {
+        setProgress(value) {
+            if (!percentEl) {
+                return;
+            }
+            const bounded = Math.min(1, Math.max(0, value || 0));
+            percentEl.textContent = `${Math.round(bounded * 100)}%`;
+        },
+        setMessage(text) {
+            if (titleEl && typeof text === 'string') {
+                titleEl.textContent = text;
+            }
+        },
+        hide() {
+            if (loader.classList.contains('hidden')) {
+                return;
+            }
+            loader.classList.add('hidden');
+            setTimeout(() => loader.remove(), 500);
+        }
+    };
 }
