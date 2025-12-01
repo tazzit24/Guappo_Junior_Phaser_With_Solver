@@ -1,9 +1,17 @@
 # Guappo Junior: The Comeback Story Nobody Asked For (But Got Anyway)
 
+---
+
+## Description
+
 Welcome, brave internet traveler, to **Guappo Junior**!  
 This isn’t your grandma’s Siemens phone game—though it started there. It’s a fan-made, stubbornly recreated version of the **abandonware classic “Wappo Junior.”** Back in the day, you guided Wappo, a spirited kid, and his pals to the **honeycombs—dodging traps and bees—at the same time.** Think synchronized honey-gathering.  
 
 ⚠️ Don’t confuse **Wappo Junior** with **Wappo** or **Wappo 2** (already remastered by other fans). This is its own beast. Enjoy!
+
+👉 Live demo: https://tazzit24.github.io/Guappo_Junior_Phaser_With_Solver/
+
+<img width="408" height="476" alt="image" src="https://github.com/user-attachments/assets/66ede71c-e9a5-4675-9926-9f13952587e1" />
 
 ---
 
@@ -30,7 +38,8 @@ PWA and SW features exist but remain untested.
 
 ## How to Play
 
-See [docs/howtoplay.html](docs/howtoplay.html) for details.
+👉 [Documentation](https://tazzit24.github.io/Guappo_Junior_Phaser_With_Solver/docs/howtoplay.html)
+
 
 ---
 
